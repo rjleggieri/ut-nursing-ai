@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Persona } from "@/types/persona";
+import { useToast } from "@/hooks/use-toast";
 
 interface PersonaSelectorProps {
   onPersonaSelected: (persona: Partial<Persona>) => void;
@@ -27,57 +28,84 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
   const [value, setValue] = useState("");
   const [personas, setPersonas] = useState<Partial<Persona>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  
+  const loadPersonas = async () => {
+    setIsLoading(true);
+    try {
+      // Adding a cache-busting parameter to prevent browser caching
+      const timestamp = new Date().getTime();
+      
+      // First, fetch the list of available YAML files from the server
+      const response = await fetch(`/api/personas?t=${timestamp}`);
+      
+      // Fallback to hardcoded list if API endpoint isn't available
+      let personaFiles = [
+        'advanced_directive',
+        'chronic_diagnosis',
+        'cultural_prenatal',
+        'adolescent_risk'
+      ];
+      
+      // If the API responded successfully, use that list instead
+      try {
+        const fileList = await response.json();
+        if (Array.isArray(fileList) && fileList.length > 0) {
+          personaFiles = fileList;
+        }
+      } catch (error) {
+        console.log("Using default persona list");
+      }
+      
+      const loadedPersonas = await Promise.all(
+        personaFiles.map(async (id) => {
+          try {
+            // Add cache-busting parameter to each request
+            const response = await fetch(`/personas/${id}.yaml?t=${timestamp}`);
+            const yamlText = await response.text();
+            
+            // Parse the YAML content
+            const nameMatch = yamlText.match(/name:\s*(.*)/);
+            const ageMatch = yamlText.match(/age:\s*(\d+)/);
+            const scenarioMatch = yamlText.match(/scenario:\s*(.*)/);
+            const diagnosisMatch = yamlText.match(/diagnosis:\s*(.*)/);
+            
+            return {
+              id,
+              name: nameMatch ? nameMatch[1].trim() : '',
+              age: ageMatch ? parseInt(ageMatch[1]) : 0,
+              scenario: scenarioMatch ? scenarioMatch[1].trim() : '',
+              diagnosis: diagnosisMatch ? diagnosisMatch[1].trim() : ''
+            };
+          } catch (error) {
+            console.error(`Failed to load persona ${id}:`, error);
+            return null;
+          }
+        })
+      );
+      
+      // Filter out any failed loads
+      const filteredPersonas = loadedPersonas.filter(persona => persona !== null) as Partial<Persona>[];
+      setPersonas(filteredPersonas);
+      toast({
+        title: "Personas Updated",
+        description: `Loaded ${filteredPersonas.length} patient profiles`,
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error("Failed to load personas:", error);
+      toast({
+        variant: "destructive",
+        title: "Error Loading Profiles",
+        description: "Could not load patient profiles. Please try refreshing.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Load persona data from YAML files
   useEffect(() => {
-    const loadPersonas = async () => {
-      setIsLoading(true);
-      try {
-        // These are the persona files we know exist based on the allowed files
-        const personaFiles = [
-          'advanced_directive',
-          'chronic_diagnosis',
-          'cultural_prenatal',
-          'adolescent_risk'
-        ];
-        
-        const loadedPersonas = await Promise.all(
-          personaFiles.map(async (id) => {
-            try {
-              const response = await fetch(`/personas/${id}.yaml`);
-              const yamlText = await response.text();
-              
-              // Parse the YAML content (in a real implementation, you'd use a YAML parser)
-              // For now, we'll extract basic info using regex
-              const nameMatch = yamlText.match(/name:\s*(.*)/);
-              const ageMatch = yamlText.match(/age:\s*(\d+)/);
-              const scenarioMatch = yamlText.match(/scenario:\s*(.*)/);
-              const diagnosisMatch = yamlText.match(/diagnosis:\s*(.*)/);
-              
-              return {
-                id,
-                name: nameMatch ? nameMatch[1].trim() : '',
-                age: ageMatch ? parseInt(ageMatch[1]) : 0,
-                scenario: scenarioMatch ? scenarioMatch[1].trim() : '',
-                diagnosis: diagnosisMatch ? diagnosisMatch[1].trim() : ''
-              };
-            } catch (error) {
-              console.error(`Failed to load persona ${id}:`, error);
-              return null;
-            }
-          })
-        );
-        
-        // Filter out any failed loads
-        const filteredPersonas = loadedPersonas.filter(persona => persona !== null) as Partial<Persona>[];
-        setPersonas(filteredPersonas);
-      } catch (error) {
-        console.error("Failed to load personas:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     loadPersonas();
   }, []);
 
@@ -96,7 +124,20 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
 
   return (
     <div className="flex flex-col space-y-4">
-      <h2 className="text-lg font-medium">Select Patient Profile</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-medium">Select Patient Profile</h2>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => loadPersonas()}
+          disabled={isLoading}
+          className="h-8 w-8 p-0"
+          title="Refresh profiles"
+        >
+          <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+          <span className="sr-only">Refresh profiles</span>
+        </Button>
+      </div>
       
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
