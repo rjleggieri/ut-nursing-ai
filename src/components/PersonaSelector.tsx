@@ -69,13 +69,19 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
             const ageMatch = yamlText.match(/age:\s*(\d+)/);
             const scenarioMatch = yamlText.match(/scenario:\s*(.*)/);
             const diagnosisMatch = yamlText.match(/diagnosis:\s*(.*)/);
+            const scenarioGoalMatch = yamlText.match(/scenario_goal:\s*>([\s\S]*?)(?=\n\w)/);
+            const clinicalBackgroundMatch = yamlText.match(/clinical:\s*>([\s\S]*?)(?=\n\s{2}\w)/);
             
             return {
               id,
               name: nameMatch ? nameMatch[1].trim() : '',
               age: ageMatch ? parseInt(ageMatch[1]) : 0,
               scenario: scenarioMatch ? scenarioMatch[1].trim() : '',
-              diagnosis: diagnosisMatch ? diagnosisMatch[1].trim() : ''
+              diagnosis: diagnosisMatch ? diagnosisMatch[1].trim() : '',
+              scenario_goal: scenarioGoalMatch ? scenarioGoalMatch[1].trim() : '',
+              background: {
+                clinical: clinicalBackgroundMatch ? clinicalBackgroundMatch[1].trim() : ''
+              }
             };
           } catch (error) {
             console.error(`Failed to load persona ${id}:`, error);
@@ -174,8 +180,23 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
         <div className="p-4 bg-utexas-lightgray rounded-md border border-gray-200">
           <h3 className="font-medium text-utexas-navy">{selectedPersona.name}, {selectedPersona.age}</h3>
           <p className="text-sm text-gray-500 mt-1">{selectedPersona.scenario}</p>
+          
           <p className="text-sm font-medium mt-2">Diagnosis:</p>
           <p className="text-sm">{selectedPersona.diagnosis}</p>
+          
+          {selectedPersona.scenario_goal && (
+            <>
+              <p className="text-sm font-medium mt-2">Scenario Goal:</p>
+              <p className="text-sm">{selectedPersona.scenario_goal}</p>
+            </>
+          )}
+          
+          {selectedPersona.background?.clinical && (
+            <>
+              <p className="text-sm font-medium mt-2">Clinical Background:</p>
+              <p className="text-sm">{selectedPersona.background.clinical}</p>
+            </>
+          )}
         </div>
       )}
     </div>
