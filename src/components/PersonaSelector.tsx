@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Check, ChevronDown, RefreshCw } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -126,17 +126,6 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
     <div className="flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">Select Patient Profile</h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => loadPersonas()}
-          disabled={isLoading}
-          className="h-8 w-8 p-0"
-          title="Refresh profiles"
-        >
-          <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-          <span className="sr-only">Refresh profiles</span>
-        </Button>
       </div>
       
       <Popover open={open} onOpenChange={setOpen}>
