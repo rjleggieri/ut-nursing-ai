@@ -8,6 +8,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -91,24 +92,26 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
         <PopoverContent className="w-full p-0">
           <Command>
             <CommandInput placeholder="Search personas..." />
-            <CommandEmpty>No persona found.</CommandEmpty>
-            <CommandGroup>
-              {personas.map((persona) => (
-                <CommandItem
-                  key={persona.id}
-                  value={persona.id}
-                  onSelect={handleSelect}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === persona.id ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {persona.name} - {persona.scenario}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            <CommandList>
+              <CommandEmpty>No persona found.</CommandEmpty>
+              <CommandGroup>
+                {personas.map((persona) => (
+                  <CommandItem
+                    key={persona.id}
+                    value={persona.id}
+                    onSelect={handleSelect}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === persona.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {persona.name} - {persona.scenario}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
