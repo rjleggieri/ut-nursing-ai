@@ -1,10 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/lib/toast';
 
-// Generate a random alphanumeric session ID
 const generateSessionId = () => {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
 };

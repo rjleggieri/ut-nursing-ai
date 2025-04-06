@@ -1,10 +1,9 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/lib/toast';
 
 interface FeedbackMessage {
   id: string;
@@ -23,7 +22,6 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
-  // Add a welcome message when component mounts
   useEffect(() => {
     setMessages([
       {
@@ -35,10 +33,8 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
     ]);
   }, []);
   
-  // Simulate receiving faculty feedback
   useEffect(() => {
     if (isActive) {
-      // Simulate a faculty feedback after conversation starts
       const timer = setTimeout(() => {
         addMessage({
           content: "I'm observing your conversation. Remember to use open-ended questions.",
@@ -50,7 +46,6 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
     }
   }, [isActive]);
   
-  // Function to add a new message
   const addMessage = ({ content, sender }: { content: string, sender: 'faculty' | 'system' }) => {
     const newMessage: FeedbackMessage = {
       id: Date.now().toString(),
@@ -62,7 +57,6 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
     setMessages(prev => [...prev, newMessage]);
   };
   
-  // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollAreaRef.current) {
       const scrollableNode = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -72,13 +66,11 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
     }
   }, [messages]);
   
-  // Handle sending message
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!inputValue.trim()) return;
     
-    // In a real implementation, this would send a message to the faculty
     toast.info("Student message functionality not implemented", { 
       description: "In the full version, this would send a message to faculty" 
     });

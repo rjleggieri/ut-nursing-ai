@@ -1,8 +1,7 @@
-
 import { useState } from 'react';
 import { Mic, MicOff, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/lib/toast';
 
 interface ConversationControlProps {
   onStatusChange: (isActive: boolean) => void;
