@@ -36,10 +36,7 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
       // Adding a cache-busting parameter to prevent browser caching
       const timestamp = new Date().getTime();
       
-      // First, fetch the list of available YAML files from the server
-      const response = await fetch(`/api/personas?t=${timestamp}`);
-      
-      // Fallback to hardcoded list if API endpoint isn't available
+      // Default persona files to use if API fails
       let personaFiles = [
         'advanced_directive',
         'chronic_diagnosis',
@@ -47,8 +44,9 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
         'adolescent_risk'
       ];
       
-      // If the API responded successfully, use that list instead
+      // Try to fetch the list from API, but fall back to defaults if needed
       try {
+        const response = await fetch(`./api/personas?t=${timestamp}`);
         const fileList = await response.json();
         if (Array.isArray(fileList) && fileList.length > 0) {
           personaFiles = fileList;
@@ -60,8 +58,8 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
       const loadedPersonas = await Promise.all(
         personaFiles.map(async (id) => {
           try {
-            // Add cache-busting parameter to each request
-            const response = await fetch(`/personas/${id}.yaml?t=${timestamp}`);
+            // Use relative paths compatible with GitHub Pages
+            const response = await fetch(`./personas/${id}.yaml?t=${timestamp}`);
             const yamlText = await response.text();
             
             // Parse the YAML content
