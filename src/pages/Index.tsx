@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import Header from '@/components/Header';
 import PersonaSelector from '@/components/PersonaSelector';
@@ -7,14 +6,20 @@ import ConversationControl from '@/components/ConversationControl';
 import ConversationWindow from '@/components/ConversationWindow';
 import FeedbackWindow from '@/components/FeedbackWindow';
 import { Persona } from '@/types/persona';
+import { useSocket } from '@/contexts/SocketContext';
 
 const Index = () => {
   const [selectedPersona, setSelectedPersona] = useState<Partial<Persona> | null>(null);
-  const [conversationActive, setConversationActive] = useState(false);
-  const [sessionId, setSessionId] = useState('');
+  const { session, messages } = useSocket();
+  const conversationActive = !!session;
+  const sessionId = session?.id || '';
 
   const handlePersonaSelected = (persona: Partial<Persona>) => {
-    setSelectedPersona(persona);
+    if (!session) {
+      setSelectedPersona(persona);
+    } else {
+      console.warn("Cannot change persona while conversation is active.");
+    }
   };
 
   return (
@@ -29,14 +34,22 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left column - Controls */}
           <div className="lg:col-span-3 space-y-6">
-            <PersonaSelector onPersonaSelected={handlePersonaSelected} />
-            <SessionInfo />
-            <ConversationControl onStatusChange={setConversationActive} />
+            <PersonaSelector 
+              onPersonaSelected={handlePersonaSelected} 
+              disabled={conversationActive}
+            />
+            <SessionInfo sessionId={sessionId} />
+            <ConversationControl 
+              selectedPersona={selectedPersona}
+            />
           </div>
           
           {/* Right column - Conversation & Feedback */}
           <div className="lg:col-span-9 grid grid-rows-2 gap-6 h-[calc(100vh-200px)]">
-            <ConversationWindow isActive={conversationActive} />
+            <ConversationWindow 
+              isActive={conversationActive} 
+              messages={messages}
+            />
             <FeedbackWindow sessionId={sessionId} isActive={conversationActive} />
           </div>
         </div>

@@ -3,19 +3,15 @@ import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
 
-const generateSessionId = () => {
-  return Math.random().toString(36).substring(2, 10).toUpperCase();
-};
+interface SessionInfoProps {
+  sessionId: string;
+}
 
-const SessionInfo = () => {
-  const [sessionId, setSessionId] = useState('');
+const SessionInfo = ({ sessionId }: SessionInfoProps) => {
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    setSessionId(generateSessionId());
-  }, []);
-
   const handleCopyClick = () => {
+    if (!sessionId) return;
     navigator.clipboard.writeText(sessionId);
     setCopied(true);
     toast("Session ID copied to clipboard!", {
@@ -28,14 +24,15 @@ const SessionInfo = () => {
     <div className="bg-utexas-lightgray rounded-md p-4 border border-gray-200">
       <h3 className="text-sm font-medium mb-2">Session ID</h3>
       <div className="flex items-center gap-2">
-        <div className="bg-white px-4 py-2 rounded border font-mono text-sm flex-1">
-          {sessionId}
+        <div className="bg-white px-4 py-2 rounded border font-mono text-sm flex-1 min-h-[36px] flex items-center">
+          {sessionId ? sessionId : <span className="text-gray-400 italic">Not active</span>}
         </div>
         <Button 
           size="sm" 
           variant="outline" 
           className="flex items-center gap-1" 
           onClick={handleCopyClick}
+          disabled={!sessionId}
         >
           {copied ? (
             <>
@@ -50,9 +47,11 @@ const SessionInfo = () => {
           )}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground mt-1">
-        Share this ID with faculty to connect to your session
-      </p>
+      {sessionId && (
+        <p className="text-xs text-muted-foreground mt-1">
+          Share this ID with faculty to connect to your session
+        </p>
+      )}
     </div>
   );
 };

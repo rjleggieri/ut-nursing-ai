@@ -1,73 +1,82 @@
-# Welcome to your Lovable project
+# Conversational Training Tool for APRN Students
 
-## Project info
+This project provides a web-based simulator for Advanced Practice Registered Nurse (APRN) students to practice sensitive patient conversations.
 
-**URL**: https://lovable.dev/projects/ac32ef50-fd1f-4a1a-b498-5d48fa7ffd56
+## Features
 
-## How can I edit this code?
+*   **Realistic Scenarios**: Practice conversations based on configurable patient personas.
+*   **Voice Interaction**: Uses Hume AI for real-time speech-to-speech communication.
+*   **Faculty Monitoring**: Allows instructors to observe sessions and provide real-time feedback.
+*   **Transcription**: Provides a log of the conversation.
+*   **Session Management**: Unique IDs for connecting students and faculty.
 
-There are several ways of editing your application.
+## Setup
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ac32ef50-fd1f-4a1a-b498-5d48fa7ffd56) and start prompting.
+*   Node.js (v18 or later recommended)
+*   npm
+*   Hume AI API Key
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
+1.  **Clone the repository:**
+    ```bash
+    git clone <your-repo-url>
+    cd ut-nursing-ai
+    ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2.  **Install Frontend Dependencies:**
+    ```bash
+    npm install
+    ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3.  **Install Backend Dependencies:**
+    ```bash
+    cd server
+    npm install
+    cd ..
+    ```
 
-Follow these steps:
+4.  **Environment Variables:**
+    *   Create a `.env` file in the root directory:
+        ```dotenv
+        VITE_WS_SERVER_URL=http://localhost:3001
+        VITE_HUME_API_KEY=your_hume_api_key
+        ```
+    *   Create a `.env` file in the `server` directory:
+        ```dotenv
+        PORT=3001
+        CLIENT_URL=http://localhost:8080 # Or the port your frontend runs on
+        HUME_API_KEY=your_hume_api_key
+        ```
+    *Replace `your_hume_api_key` with your actual key.*
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Running the Application
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1.  **Start the Backend Server:**
+    ```bash
+    cd server
+    npm run dev
+    ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+2.  **Start the Frontend Development Server:**
+    (In a separate terminal, from the root directory)
+    ```bash
+    npm run dev
+    ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+3.  Open your browser to the URL provided by the frontend server (e.g., `http://localhost:8080`).
 
-**Edit a file directly in GitHub**
+## Development
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+*   **Frontend**: React, TypeScript, Vite, Tailwind CSS, Shadcn UI
+*   **Backend**: Node.js, TypeScript, Express, Socket.IO
 
-**Use GitHub Codespaces**
+## Deployment
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+(Deployment instructions TBD)
 
-## What technologies are used for this project?
+## Contributing
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/ac32ef50-fd1f-4a1a-b498-5d48fa7ffd56) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes it is!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+(Contribution guidelines TBD)

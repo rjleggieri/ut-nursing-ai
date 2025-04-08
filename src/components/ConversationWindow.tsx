@@ -1,94 +1,88 @@
-
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface Message {
-  id: string;
-  role: 'student' | 'patient';
-  content: string;
-  timestamp: Date;
-}
+// Use the Message type consistent with SocketContext
+import { Message } from '@/contexts/SocketContext'; 
 
 interface ConversationWindowProps {
   isActive: boolean;
+  messages: Message[]; // Receives all messages from context
 }
 
-const ConversationWindow = ({ isActive }: ConversationWindowProps) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+const ConversationWindow = ({ isActive, messages }: ConversationWindowProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Filter messages to only show AI/Patient
+  const patientMessages = messages.filter(msg => msg.type === 'ai');
   
-  // Sample messages for demonstration
-  useEffect(() => {
-    if (isActive) {
-      // Simulate an initial message from the patient after conversation starts
-      const timer = setTimeout(() => {
-        addMessage({
-          role: 'patient', 
-          content: "Hello, how are you today? I'm a little nervous about being here.",
-        });
-      }, 1500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isActive]);
-  
-  // Function to add a new message
-  const addMessage = ({ role, content }: { role: 'student' | 'patient', content: string }) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      role,
-      content,
-      timestamp: new Date(),
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
-  };
-  
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom when patientMessages change
   useEffect(() => {
     if (scrollAreaRef.current) {
-      const scrollableNode = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollableNode) {
-        scrollableNode.scrollTop = scrollableNode.scrollHeight;
+      const scrollableViewport = scrollAreaRef.current.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
+      if (scrollableViewport) {
+          // Slight delay to allow DOM update before scrolling
+          setTimeout(() => {
+              scrollableViewport.scrollTop = scrollableViewport.scrollHeight;
+          }, 50); 
       }
     }
-  }, [messages]);
+  }, [patientMessages]); // Depend on filtered messages
+  
+  // Helper to format timestamp
+  const formatTimestamp = (timestamp: Date | string | undefined): string => {
+    if (!timestamp) return '--:--:--';
+    try {
+      // Ensure it's a Date object. If it's a string, parse it.
+      const date = typeof timestamp === 'string' ? new Date(Date.parse(timestamp)) : timestamp;
+      // Check if the date is valid after parsing
+      if (isNaN(date.getTime())) return '--:--:--'; 
+      return date.toLocaleTimeString([], { 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          second: '2-digit' // Add seconds
+      });
+    } catch (e) {
+      console.error("Error formatting timestamp:", timestamp, e);
+      return '--:--:--';
+    }
+  };
+  
+  // Helper to determine sender display name
+  const getSenderName = (type: 'student' | 'ai' | 'faculty'): string => {
+      // Simplified for this window's purpose
+      if (type === 'ai') return 'Patient (AI)';
+      return 'Other'; // Should ideally not happen if filtered correctly
+  };
   
   return (
     <div className="flex flex-col h-full border rounded-md">
       <div className="p-3 border-b bg-utexas-navy text-white font-medium">
-        Patient Conversation
+        Patient Conversation Log
       </div>
       
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 chat-scrollbar">
-        {messages.length === 0 ? (
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 chat-scrollbar bg-white">
+        {patientMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             {isActive 
               ? "Waiting for conversation to begin..." 
-              : "Start a conversation to begin recording"}
+              : "Session inactive or not started"}
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map(message => (
+            {patientMessages.map((message, index) => (
               <div
-                key={message.id}
-                className={`flex ${
-                  message.role === 'student' ? 'justify-end' : 'justify-start'
-                }`}
+                key={`${message.sessionId}-${message.timestamp}-${index}`}
+                className={`flex justify-start`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg py-2 px-3 ${
-                    message.role === 'student'
-                      ? 'bg-utexas-orange text-white'
-                      : 'bg-gray-100'
-                  }`}
+                  className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words bg-gray-100 text-gray-900`}
                 >
-                  <div className="text-xs font-medium mb-1">
-                    {message.role === 'student' ? 'You' : 'Patient'}
+                  <div className="text-xs font-medium mb-1 opacity-80">
+                    {getSenderName(message.type)} 
                   </div>
                   <p>{message.content}</p>
                   <div className="text-xs opacity-70 mt-1 text-right">
-                    {message.timestamp.toLocaleTimeString()}
+                    {formatTimestamp(message.timestamp)}
                   </div>
                 </div>
               </div>

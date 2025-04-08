@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,9 +20,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface PersonaSelectorProps {
   onPersonaSelected: (persona: Partial<Persona>) => void;
+  disabled?: boolean;
 }
 
-const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
+const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const [personas, setPersonas] = useState<Partial<Persona>[]>([]);
@@ -139,7 +139,7 @@ const PersonaSelector = ({ onPersonaSelected }: PersonaSelectorProps) => {
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between h-11"
-            disabled={isLoading}
+            disabled={isLoading || disabled}
           >
             {value
               ? personas.find((persona) => persona.id === value)?.scenario || "Select profile..."

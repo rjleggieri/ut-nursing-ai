@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 
 const Header = () => {
@@ -7,7 +6,7 @@ const Header = () => {
       <div className="container flex items-center justify-between">
         <Link to="/" className="flex items-center">
           <img 
-            src="./lovable-uploads/4a02ecd1-a2cb-4bd1-8bee-8aade6ff8d72.png" 
+            src="/ut-banner.png"
             alt="UT Austin School of Nursing Logo" 
             className="h-16"
           />

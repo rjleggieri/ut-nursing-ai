@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, Clipboard, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,33 +6,80 @@ import { toast } from '@/lib/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSocket } from '@/contexts/SocketContext';
+import ConversationWindow from '@/components/ConversationWindow';
+
+// Helper to format timestamp (copied from FeedbackWindow/ConversationWindow)
+const formatTimestamp = (timestamp: Date | string | undefined): string => {
+  if (!timestamp) return '--:--:--';
+  try {
+    // Ensure it's a Date object. If it's a string, parse it.
+    const date = typeof timestamp === 'string' ? new Date(Date.parse(timestamp)) : timestamp;
+    // Check if the date is valid after parsing
+    if (isNaN(date.getTime())) return '--:--:--'; 
+    return date.toLocaleTimeString([], { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        second: '2-digit' // Add seconds
+    });
+  } catch (e) {
+    console.error("Error formatting timestamp:", timestamp, e);
+    return '--:--:--';
+  }
+};
 
 const FacultyDashboard = () => {
-  const [sessionId, setSessionId] = useState('');
-  const [connected, setConnected] = useState(false);
+  const [inputSessionId, setInputSessionId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
+  const { joinSession, session, messages: allMessages, sendMessage, isConnected: socketConnected } = useSocket();
+  const connected = !!session;
+  const actualSessionId = session?.id || '';
+  const feedbackScrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Handle connect button
+  // Filter messages for the feedback/chat window (student and faculty only)
+  const feedbackMessages = allMessages.filter(msg => 
+    msg.sessionId === actualSessionId && (msg.type === 'student' || msg.type === 'faculty')
+  );
+  
+  // Scroll feedback area to bottom
+  useEffect(() => {
+    if (feedbackScrollAreaRef.current) {
+        const scrollableViewport = feedbackScrollAreaRef.current.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
+        if (scrollableViewport) {
+            setTimeout(() => {
+                scrollableViewport.scrollTop = scrollableViewport.scrollHeight;
+            }, 50);
+        }
+    }
+  }, [feedbackMessages]);
+
   const handleConnect = () => {
-    if (!sessionId.trim()) {
+    if (!socketConnected) {
+      toast.error("Not connected to server", { description: "Please wait or refresh." });
+      return;
+    }
+    const trimmedSessionId = inputSessionId.trim();
+    if (!trimmedSessionId) {
       toast.error("Please enter a valid Session ID");
       return;
     }
     
-    // In a real implementation, this would attempt to connect to the student's session
-    // For now, we'll simulate a successful connection
-    setConnected(true);
-    toast.success("Connected to student session", {
-      description: `Session ID: ${sessionId}`
-    });
+    const facultyId = "faculty456"; 
+    
+    console.log(`Attempting to join session: ${trimmedSessionId} as faculty: ${facultyId}`);
+    joinSession(trimmedSessionId, facultyId);
   };
 
-  // Handle sending feedback
   const handleSendFeedback = () => {
-    if (!feedbackText.trim()) return;
+    if (!feedbackText.trim() || !connected || !socketConnected || !session) return;
     
-    // In a real implementation, this would send feedback to the student
-    toast.success("Feedback sent to student");
+    // Send message using context
+    sendMessage({
+      type: 'faculty',
+      content: feedbackText.trim(),
+      sessionId: session.id
+    });
+
     setFeedbackText('');
   };
 
@@ -41,7 +87,7 @@ const FacultyDashboard = () => {
   const handlePasteFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setSessionId(text);
+      setInputSessionId(text);
       toast.info("Session ID pasted from clipboard");
     } catch (error) {
       toast.error("Could not access clipboard");
@@ -62,8 +108,8 @@ const FacultyDashboard = () => {
             <div className="flex items-center space-x-2 mb-6">
               <div className="flex-1">
                 <Input
-                  value={sessionId}
-                  onChange={(e) => setSessionId(e.target.value)}
+                  value={inputSessionId}
+                  onChange={(e) => setInputSessionId(e.target.value)}
                   placeholder="Enter Session ID"
                 />
               </div>
@@ -80,7 +126,7 @@ const FacultyDashboard = () => {
             <Button 
               className="w-full" 
               onClick={handleConnect} 
-              disabled={!sessionId.trim()}
+              disabled={!inputSessionId.trim() || !socketConnected}
             >
               <Search className="mr-2 h-4 w-4" />
               Connect to Session
@@ -90,7 +136,7 @@ const FacultyDashboard = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-8 space-y-6">
               <div className="bg-white p-4 rounded-lg shadow">
-                <h2 className="font-semibold text-lg mb-2">Student Session: {sessionId}</h2>
+                <h2 className="font-semibold text-lg mb-2">Student Session: {actualSessionId}</h2>
                 <div className="flex items-center text-sm text-emerald-600 mb-4">
                   <div className="h-2 w-2 rounded-full bg-emerald-600 mr-2"></div>
                   Connected
@@ -103,23 +149,10 @@ const FacultyDashboard = () => {
                   </TabsList>
                   
                   <TabsContent value="conversation" className="mt-4">
-                    <ScrollArea className="h-[60vh] border rounded-md">
-                      <div className="p-4">
-                        <div className="flex mb-5">
-                          <div className="bg-gray-100 py-2 px-3 rounded-lg max-w-[80%]">
-                            <div className="text-xs font-medium mb-1">Patient</div>
-                            <p>Hello, how are you today? I'm a little nervous about being here.</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex justify-end mb-5">
-                          <div className="bg-utexas-orange text-white py-2 px-3 rounded-lg max-w-[80%]">
-                            <div className="text-xs font-medium mb-1">Student</div>
-                            <p>Good morning. It's normal to feel nervous. Thank you for coming in today. I'd like to talk about how you've been feeling lately.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </ScrollArea>
+                    <ConversationWindow 
+                      messages={allMessages}
+                      isActive={true}
+                    />
                   </TabsContent>
                   
                   <TabsContent value="metrics" className="mt-4">
@@ -135,45 +168,58 @@ const FacultyDashboard = () => {
             
             <div className="lg:col-span-4">
               <div className="bg-white p-4 rounded-lg shadow h-full flex flex-col">
-                <h2 className="font-semibold text-lg mb-4">Provide Feedback</h2>
+                <h2 className="font-semibold text-lg mb-4">Student/Faculty Chat</h2>
                 
-                <ScrollArea className="flex-1 mb-4 max-h-[40vh]">
-                  <div className="space-y-3">
-                    <div className="bg-blue-100 p-3 rounded-lg">
-                      <p className="text-sm">Remember to use open-ended questions.</p>
-                      <p className="text-xs text-right mt-1 text-gray-500">10:23 AM</p>
+                <ScrollArea ref={feedbackScrollAreaRef} className="flex-1 mb-4 max-h-[calc(100vh-400px)] border rounded-md bg-white p-4">
+                  {feedbackMessages.length === 0 ? (
+                     <div className="flex items-center justify-center h-full text-muted-foreground">
+                        Chat messages will appear here.
+                     </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {feedbackMessages.map((message, index) => (
+                        <div 
+                          key={`${message.sessionId}-${message.timestamp}-${index}`}
+                          className={`flex ${message.type === 'faculty' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words ${
+                              message.type === 'faculty'
+                                ? 'bg-blue-100 text-blue-900'
+                                : 'bg-utexas-orange text-white'
+                            }`}
+                          >
+                            <div className="text-xs font-medium mb-1 opacity-80">
+                              {message.type === 'faculty' ? 'You (Faculty)' : 'Student'}
+                            </div>
+                            <p>{message.content}</p>
+                            <div className="text-xs opacity-70 mt-1 text-right">
+                              {formatTimestamp(message.timestamp)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  )}
                 </ScrollArea>
                 
-                <div className="mt-auto">
+                <form 
+                  onSubmit={(e) => { e.preventDefault(); handleSendFeedback(); }}
+                  className="mt-auto pt-4 border-t"
+                >
                   <div className="flex gap-2">
                     <Input
                       value={feedbackText}
                       onChange={(e) => setFeedbackText(e.target.value)}
-                      placeholder="Type feedback for student..."
+                      placeholder="Type a message..."
                       className="flex-1"
+                      disabled={!connected || !socketConnected}
                     />
-                    <Button onClick={handleSendFeedback} disabled={!feedbackText.trim()}>
+                    <Button type="submit" disabled={!feedbackText.trim() || !connected || !socketConnected}>
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 mt-3">
-                    <Button variant="outline" size="sm" className="text-xs">
-                      Good empathy
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-xs">
-                      Open questions
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-xs">
-                      Try rephrasing
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-xs">
-                      Check understanding
-                    </Button>
-                  </div>
-                </div>
+                </form>
               </div>
             </div>
           </div>
