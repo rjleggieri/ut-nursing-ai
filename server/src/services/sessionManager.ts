@@ -1,4 +1,4 @@
-import { Session, Message } from '../types/session';
+import { Session, Message, PersonaData } from '../types/session';
 // import { v4 as uuidv4 } from 'uuid'; // Remove uuid
 import crypto from 'crypto'; // Import crypto
 
@@ -14,11 +14,15 @@ class SessionManager {
   private sessions: Map<string, Session> = new Map();
   private messages: Map<string, Message[]> = new Map();
 
-  createSession(studentId: string, persona: string): Session {
+  createSession(studentId: string, personaData: PersonaData): Session {
+    if (!personaData || !personaData.id) {
+        // Basic validation - might want more robust checks
+        throw new Error("Invalid persona data provided for session creation.");
+    }
     const session: Session = {
-      id: generateShortId(), // Use the new function
+      id: generateShortId(), 
       studentId,
-      persona,
+      personaData: personaData, // Store the full object
       startTime: new Date(),
       active: true,
       connectedFaculty: []
@@ -26,7 +30,7 @@ class SessionManager {
 
     this.sessions.set(session.id, session);
     this.messages.set(session.id, []);
-    console.log(`SessionManager: Created session ${session.id}`);
+    console.log(`SessionManager: Created session ${session.id} with persona ${personaData.id}`);
     return session;
   }
 

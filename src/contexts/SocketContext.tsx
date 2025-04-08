@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { PersonaData } from '@/types/persona'; // Import PersonaData type
 // Define types locally instead of importing from server
 // Duplicating these types is acceptable for decoupling frontend/backend
 
@@ -25,7 +26,7 @@ interface SocketContextType {
   session: Session | null;
   messages: Message[];
   isConnected: boolean;
-  createSession: (studentId: string, persona: string) => void;
+  createSession: (studentId: string, personaData: PersonaData) => void;
   joinSession: (sessionId: string, facultyId: string) => void;
   sendMessage: (message: Omit<Message, 'timestamp' | 'senderId'>) => void; // Let backend set timestamp/sender
   endSession: () => void;
@@ -114,8 +115,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   }, []); // Run only once on mount
 
   // --- Emitter Functions ---
-  const createSession = (studentId: string, persona: string) => {
-    socket?.emit('create_session', { studentId, persona });
+  const createSession = (studentId: string, personaData: PersonaData) => {
+    console.log("Context: Emitting create_session", { studentId, personaId: personaData?.id });
+    socket?.emit('create_session', { studentId, personaData });
   };
 
   const joinSession = (sessionId: string, facultyId: string) => {

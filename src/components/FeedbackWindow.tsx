@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSocket } from '@/contexts/SocketContext';
 import { Message } from '@/contexts/SocketContext';
+import { formatTimestamp } from '@/lib/utils';
 
 interface FeedbackWindowProps {
   sessionId: string;
@@ -30,22 +31,6 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
         }
     }
   }, [chatMessages]);
-  
-  const formatTimestamp = (timestamp: Date | string | undefined): string => {
-    if (!timestamp) return '--:--:--';
-    try {
-      const date = typeof timestamp === 'string' ? new Date(Date.parse(timestamp)) : timestamp;
-      if (isNaN(date.getTime())) return '--:--:--';
-      return date.toLocaleTimeString([], { 
-          hour: 'numeric', 
-          minute: '2-digit', 
-          second: '2-digit'
-      });
-    } catch (e) {
-      console.error("Error formatting timestamp:", timestamp, e);
-      return '--:--:--';
-    }
-  };
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,10 +72,7 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
                       : 'bg-blue-100 text-blue-900'
                   }`}
                 >
-                  <div className="text-xs font-medium mb-1 opacity-80">
-                    {message.type === 'student' ? 'You (Student)' : 'Faculty'}
-                  </div>
-                  <p>{message.content}</p>
+                  <p className="mb-1">{message.content}</p>
                   <div className="text-xs opacity-70 mt-1 text-right">
                     {formatTimestamp(message.timestamp)}
                   </div>

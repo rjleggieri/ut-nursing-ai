@@ -6,7 +6,7 @@ const Header = () => {
       <div className="container flex items-center justify-between">
         <Link to="/" className="flex items-center">
           <img 
-            src="/ut-banner.png"
+            src="/assets/ut-banner.png"
             alt="UT Austin School of Nursing Logo" 
             className="h-16"
           />

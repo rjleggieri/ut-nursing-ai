@@ -4,7 +4,7 @@ import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { sessionManager } from './services/sessionManager';
-import { Message } from './types/session';
+import { Message, PersonaData } from './types/session';
 
 dotenv.config();
 
@@ -33,13 +33,18 @@ io.on('connection', (socket: Socket) => {
 
   let currentSessionId: string | null = null;
 
-  socket.on('create_session', ({ studentId, persona }: { studentId: string, persona: string }) => {
-    console.log(`Received create_session request from ${socket.id} for student ${studentId}`);
-    const session = sessionManager.createSession(studentId, persona);
-    currentSessionId = session.id;
-    socket.join(session.id);
-    socket.emit('session_created', session);
-    console.log(`Session created: ${session.id}, Student ${studentId} joined.`);
+  socket.on('create_session', ({ studentId, personaData }: { studentId: string, personaData: any }) => {
+    console.log(`Received create_session request from ${socket.id} for student ${studentId} with persona ${personaData?.id}`);
+    try {
+      const session = sessionManager.createSession(studentId, personaData as PersonaData);
+      currentSessionId = session.id;
+      socket.join(session.id);
+      socket.emit('session_created', session);
+      console.log(`Session created: ${session.id}, Student ${studentId} joined.`);
+    } catch (error: any) {
+      console.error("Failed to create session:", error);
+      socket.emit('error', { message: `Failed to create session: ${error.message || 'Invalid persona data'}` });
+    }
   });
 
   socket.on('join_session', ({ sessionId, facultyId }: { sessionId: string, facultyId: string }) => {
@@ -82,6 +87,17 @@ io.on('connection', (socket: Socket) => {
     } else {
       console.error(`Invalid attempt to send message to session ${message.sessionId}.`);
       socket.emit('error', { message: 'Cannot send message to this session' });
+    }
+  });
+
+  // Handle voice input chunks from student
+  socket.on('VOICE_INPUT', ({ sessionId, audioChunk }: { sessionId: string, audioChunk: Buffer }) => {
+    // TODO: Validate session and user authorization if needed
+    if (currentSessionId === sessionId) {
+      console.log(`Received voice input chunk for session ${sessionId}, size: ${audioChunk.length}`);
+      // TODO: Forward audioChunk to Hume STT service
+    } else {
+      console.warn(`Received voice input for inactive/wrong session ${sessionId} from ${socket.id}`);
     }
   });
 

@@ -4,10 +4,14 @@ This project provides a web-based simulator for Advanced Practice Registered Nur
 
 ## Features
 
-*   **Realistic Scenarios**: Practice conversations based on configurable patient personas.
-*   **Voice Interaction**: Uses Hume AI for real-time speech-to-speech communication.
-*   **Faculty Monitoring**: Allows instructors to observe sessions and provide real-time feedback.
-*   **Transcription**: Provides a log of the conversation.
+*   **Realistic Scenarios**: Practice conversations based on faculty-authored patient personas detailing background, goals, and emotional states.
+*   **GuideLLM-Inspired AI Interaction**: 
+    *   **Goal Navigation:** Patient AI subtly guides conversation towards key milestones/topics defined in the persona, while allowing the student to lead the interaction.
+    *   **Context Management:** Maintains conversational context (history, topics, emotion) for realistic and coherent responses (inspired by MGE).
+    *   **Empathetic Engagement:** AI responses are driven by explicit persona instructions for tone, emotion, and empathy.
+*   **Voice Interaction**: Leverages Hume AI for real-time speech-to-speech communication.
+*   **Faculty Monitoring & Chat**: Allows instructors to observe sessions and provide real-time text-based chat feedback.
+*   **Transcription**: Provides a log of the AI/patient conversation.
 *   **Session Management**: Unique IDs for connecting students and faculty.
 
 ## Setup

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Check, ChevronDown } from "lucide-react";
+import yaml from 'js-yaml';
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -15,89 +16,80 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Persona } from "@/types/persona";
 import { useToast } from "@/hooks/use-toast";
+import { PersonaData } from "@/types/persona";
 
 interface PersonaSelectorProps {
-  onPersonaSelected: (persona: Partial<Persona>) => void;
+  onPersonaSelected: (persona: PersonaData | null) => void;
   disabled?: boolean;
 }
 
 const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) => {
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("");
-  const [personas, setPersonas] = useState<Partial<Persona>[]>([]);
+  const [selectedValue, setSelectedValue] = useState<string | null>(null);
+  const [personas, setPersonas] = useState<PersonaData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
   const loadPersonas = async () => {
     setIsLoading(true);
+    console.log("Loading personas...");
     try {
-      // Adding a cache-busting parameter to prevent browser caching
       const timestamp = new Date().getTime();
+      let personaFiles = ['advanced_directive', 'chronic_diagnosis', 'cultural_prenatal', 'adolescent_risk'];
       
-      // Default persona files to use if API fails
-      let personaFiles = [
-        'advanced_directive',
-        'chronic_diagnosis',
-        'cultural_prenatal',
-        'adolescent_risk'
-      ];
-      
-      // Try to fetch the list from API, but fall back to defaults if needed
       try {
         const response = await fetch(`./api/personas?t=${timestamp}`);
-        const fileList = await response.json();
-        if (Array.isArray(fileList) && fileList.length > 0) {
-          personaFiles = fileList;
+        if (response.ok) {
+            const fileList = await response.json();
+            if (Array.isArray(fileList) && fileList.length > 0) {
+              personaFiles = fileList;
+              console.log("Fetched persona list from API:", personaFiles);
+            }
+        } else {
+            console.log("API for persona list not found or failed, using defaults.");
         }
       } catch (error) {
-        console.log("Using default persona list");
+        console.log("Error fetching persona list, using defaults:", error);
       }
       
-      const loadedPersonas = await Promise.all(
-        personaFiles.map(async (id) => {
-          try {
-            // Use relative paths compatible with GitHub Pages
-            const response = await fetch(`./personas/${id}.yaml?t=${timestamp}`);
-            const yamlText = await response.text();
-            
-            // Parse the YAML content
-            const nameMatch = yamlText.match(/name:\s*(.*)/);
-            const ageMatch = yamlText.match(/age:\s*(\d+)/);
-            const scenarioMatch = yamlText.match(/scenario:\s*(.*)/);
-            const diagnosisMatch = yamlText.match(/diagnosis:\s*(.*)/);
-            const scenarioGoalMatch = yamlText.match(/scenario_goal:\s*>([\s\S]*?)(?=\n\w)/);
-            const clinicalBackgroundMatch = yamlText.match(/clinical:\s*>([\s\S]*?)(?=\n\s{2}\w)/);
-            
-            return {
-              id,
-              name: nameMatch ? nameMatch[1].trim() : '',
-              age: ageMatch ? parseInt(ageMatch[1]) : 0,
-              scenario: scenarioMatch ? scenarioMatch[1].trim() : '',
-              diagnosis: diagnosisMatch ? diagnosisMatch[1].trim() : '',
-              scenario_goal: scenarioGoalMatch ? scenarioGoalMatch[1].trim() : '',
-              background: {
-                clinical: clinicalBackgroundMatch ? clinicalBackgroundMatch[1].trim() : ''
-              }
-            };
-          } catch (error) {
-            console.error(`Failed to load persona ${id}:`, error);
-            return null;
+      const loadedPersonasPromises = personaFiles.map(async (id) => {
+        try {
+          const response = await fetch(`./personas/${id}.yaml?t=${timestamp}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch persona ${id}: ${response.statusText}`);
           }
-        })
-      );
+          const yamlText = await response.text();
+          const parsedData = yaml.load(yamlText) as any;
+          
+          if (!parsedData || typeof parsedData !== 'object' || !parsedData.scenario) {
+              throw new Error(`Invalid YAML structure for ${id}`);
+          }
+
+          parsedData.id = id; 
+          
+          console.log(`Loaded and parsed ${id}.yaml`);
+          return parsedData as PersonaData;
+        } catch (error) {
+          console.error(`Failed to load or parse persona ${id}:`, error);
+          toast({ variant: "destructive", title: `Error loading ${id}`, description: String(error) });
+          return null;
+        }
+      });
       
-      // Filter out any failed loads
-      const filteredPersonas = loadedPersonas.filter(persona => persona !== null) as Partial<Persona>[];
-      setPersonas(filteredPersonas);
+      const loadedPersonasResults = await Promise.all(loadedPersonasPromises);
+      const validPersonas = loadedPersonasResults.filter(p => p !== null) as PersonaData[];
+      
+      setPersonas(validPersonas);
+      console.log(`Successfully loaded ${validPersonas.length} personas.`);
       toast({
-        title: "Personas Updated",
-        description: `Loaded ${filteredPersonas.length} patient profiles`,
+        title: "Personas Loaded",
+        description: `Loaded ${validPersonas.length} patient profiles.`,
         duration: 2000,
       });
+
     } catch (error) {
-      console.error("Failed to load personas:", error);
+      console.error("General error loading personas:", error);
       toast({
         variant: "destructive",
         title: "Error Loading Profiles",
@@ -108,22 +100,17 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
     }
   };
   
-  // Load persona data from YAML files
   useEffect(() => {
     loadPersonas();
   }, []);
 
-  // Find the selected persona
-  const selectedPersona = personas.find(persona => persona.id === value);
+  const selectedPersonaObject = personas.find(persona => persona.id === selectedValue);
 
-  // Handle selection
-  const handleSelect = (currentValue: string) => {
-    setValue(currentValue);
+  const handleSelect = (selectedId: string) => {
+    const persona = personas.find(p => p.id === selectedId);
+    setSelectedValue(selectedId);
     setOpen(false);
-    const persona = personas.find(p => p.id === currentValue);
-    if (persona) {
-      onPersonaSelected(persona);
-    }
+    onPersonaSelected(persona || null);
   };
 
   return (
@@ -141,8 +128,8 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
             className="w-full justify-between h-11"
             disabled={isLoading || disabled}
           >
-            {value
-              ? personas.find((persona) => persona.id === value)?.scenario || "Select profile..."
+            {selectedValue
+              ? personas.find((p) => p.id === selectedValue)?.scenario || "Select profile..."
               : "Select profile..."}
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -157,15 +144,15 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
                   <CommandItem
                     key={persona.id}
                     value={persona.id}
-                    onSelect={handleSelect}
+                    onSelect={() => handleSelect(persona.id)}
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        value === persona.id ? "opacity-100" : "opacity-0"
+                        selectedValue === persona.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    {persona.scenario}
+                    {persona.scenario || persona.name}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -173,29 +160,29 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
           </Command>
         </PopoverContent>
       </Popover>
-
-      {selectedPersona && (
-        <div className="p-4 bg-utexas-lightgray rounded-md border border-gray-200">
-          <h3 className="font-medium text-utexas-navy">{selectedPersona.name}, {selectedPersona.age}</h3>
-          <p className="text-sm text-gray-500 mt-1">{selectedPersona.scenario}</p>
-          
-          <p className="text-sm font-medium mt-2">Diagnosis:</p>
-          <p className="text-sm">{selectedPersona.diagnosis}</p>
-          
-          {selectedPersona.scenario_goal && (
-            <>
-              <p className="text-sm font-medium mt-2">Scenario Goal:</p>
-              <p className="text-sm">{selectedPersona.scenario_goal}</p>
-            </>
-          )}
-          
-          {selectedPersona.background?.clinical && (
-            <>
-              <p className="text-sm font-medium mt-2">Clinical Background:</p>
-              <p className="text-sm">{selectedPersona.background.clinical}</p>
-            </>
-          )}
-        </div>
+      
+      {selectedPersonaObject && (
+         <div className="p-4 bg-utexas-lightgray rounded-md border border-gray-200">
+             <h3 className="font-medium text-utexas-navy">{selectedPersonaObject.name}, {selectedPersonaObject.age}</h3>
+             <p className="text-sm text-gray-500 mt-1">{selectedPersonaObject.scenario}</p>
+             
+             <p className="text-sm font-medium mt-2">Diagnosis:</p>
+             <p className="text-sm">{selectedPersonaObject.diagnosis}</p>
+             
+             {selectedPersonaObject.scenario_goal && (
+               <>
+                 <p className="text-sm font-medium mt-2">Scenario Goal:</p>
+                 <p className="text-sm">{selectedPersonaObject.scenario_goal}</p>
+               </>
+             )}
+             
+             {selectedPersonaObject.background?.clinical && (
+               <>
+                 <p className="text-sm font-medium mt-2">Clinical Background:</p>
+                 <p className="text-sm">{selectedPersonaObject.background.clinical}</p>
+               </>
+             )}
+         </div>
       )}
     </div>
   );

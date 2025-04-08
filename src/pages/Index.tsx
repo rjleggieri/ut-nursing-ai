@@ -5,16 +5,16 @@ import SessionInfo from '@/components/SessionInfo';
 import ConversationControl from '@/components/ConversationControl';
 import ConversationWindow from '@/components/ConversationWindow';
 import FeedbackWindow from '@/components/FeedbackWindow';
-import { Persona } from '@/types/persona';
 import { useSocket } from '@/contexts/SocketContext';
+import { PersonaData } from '@/types/persona';
 
 const Index = () => {
-  const [selectedPersona, setSelectedPersona] = useState<Partial<Persona> | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<PersonaData | null>(null);
   const { session, messages } = useSocket();
   const conversationActive = !!session;
   const sessionId = session?.id || '';
 
-  const handlePersonaSelected = (persona: Partial<Persona>) => {
+  const handlePersonaSelected = (persona: PersonaData | null) => {
     if (!session) {
       setSelectedPersona(persona);
     } else {
