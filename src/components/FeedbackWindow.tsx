@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSocket } from '@/contexts/SocketContext';
-import { Message } from '@/contexts/SocketContext';
+import { ClientMessage } from '@/contexts/SocketContext';
 import { formatTimestamp } from '@/lib/utils';
 
 interface FeedbackWindowProps {
@@ -17,7 +17,11 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
-  const chatMessages = allMessages.filter(msg => 
+  const feedbackScrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Filter messages based on the locally confirmed connected session
+  // *** Only show STUDENT (text) and FACULTY messages ***
+  const feedbackMessages = allMessages.filter(msg => 
     msg.sessionId === session?.id && (msg.type === 'student' || msg.type === 'faculty')
   );
   
@@ -30,16 +34,16 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
             }, 50);
         }
     }
-  }, [chatMessages]);
+  }, [feedbackMessages]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || !isConnected || !session) return;
     
     sendMessage({
-      type: 'student', 
+      type: 'student',
+      senderId: session.studentId,
       content: inputValue.trim(),
-      sessionId: session.id
     });
     
     setInputValue('');
@@ -52,7 +56,7 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
       </div>
       
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 chat-scrollbar bg-white">
-        {chatMessages.length === 0 ? (
+        {feedbackMessages.length === 0 ? (
            <div className="flex items-center justify-center h-full text-muted-foreground">
              {isActive 
                ? "Waiting for faculty message..." 
@@ -60,7 +64,7 @@ const FeedbackWindow = ({ sessionId, isActive }: FeedbackWindowProps) => {
            </div>
         ) : (
           <div className="space-y-4">
-            {chatMessages.map((message, index) => (
+            {feedbackMessages.map((message, index) => (
               <div 
                 key={`${message.sessionId}-${message.timestamp}-${index}`}
                 className={`flex ${message.type === 'student' ? 'justify-end' : 'justify-start'}`}

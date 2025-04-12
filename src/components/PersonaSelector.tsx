@@ -33,31 +33,27 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
   
   const loadPersonas = async () => {
     setIsLoading(true);
-    console.log("Loading personas...");
+    console.log("Loading personas dynamically...");
     try {
       const timestamp = new Date().getTime();
-      let personaFiles = ['advanced_directive', 'chronic_diagnosis', 'cultural_prenatal', 'adolescent_risk'];
       
-      try {
-        const response = await fetch(`./api/personas?t=${timestamp}`);
-        if (response.ok) {
-            const fileList = await response.json();
-            if (Array.isArray(fileList) && fileList.length > 0) {
-              personaFiles = fileList;
-              console.log("Fetched persona list from API:", personaFiles);
-            }
-        } else {
-            console.log("API for persona list not found or failed, using defaults.");
-        }
-      } catch (error) {
-        console.log("Error fetching persona list, using defaults:", error);
-      }
-      
-      const loadedPersonasPromises = personaFiles.map(async (id) => {
+      // *** Use import.meta.glob to find YAML files ***
+      const modules = import.meta.glob('/public/personas/*.yaml');
+      console.log("Found persona modules:", Object.keys(modules));
+
+      // *** Iterate through the found modules ***
+      const loadedPersonasPromises = Object.keys(modules).map(async (path) => {
+        // Extract ID (filename without extension) from path
+        const filename = path.split('/').pop();
+        if (!filename) return null; 
+        const id = filename.replace('.yaml', '');
+        
         try {
-          const response = await fetch(`./personas/${id}.yaml?t=${timestamp}`);
+          // Construct the fetch path relative to the public directory
+          const fetchPath = `./personas/${filename}?t=${timestamp}`;
+          const response = await fetch(fetchPath);
           if (!response.ok) {
-            throw new Error(`Failed to fetch persona ${id}: ${response.statusText}`);
+            throw new Error(`Failed to fetch ${fetchPath}: ${response.statusText}`);
           }
           const yamlText = await response.text();
           const parsedData = yaml.load(yamlText) as any;
@@ -68,10 +64,10 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
 
           parsedData.id = id; 
           
-          console.log(`Loaded and parsed ${id}.yaml`);
+          console.log(`Loaded and parsed ${id}.yaml from ${path}`);
           return parsedData as PersonaData;
         } catch (error) {
-          console.error(`Failed to load or parse persona ${id}:`, error);
+          console.error(`Failed to load or parse persona ${id} from ${path}:`, error);
           toast({ variant: "destructive", title: `Error loading ${id}`, description: String(error) });
           return null;
         }
@@ -81,7 +77,7 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
       const validPersonas = loadedPersonasResults.filter(p => p !== null) as PersonaData[];
       
       setPersonas(validPersonas);
-      console.log(`Successfully loaded ${validPersonas.length} personas.`);
+      console.log(`Successfully loaded ${validPersonas.length} personas dynamically.`);
       toast({
         title: "Personas Loaded",
         description: `Loaded ${validPersonas.length} patient profiles.`,
@@ -161,29 +157,9 @@ const PersonaSelector = ({ onPersonaSelected, disabled }: PersonaSelectorProps) 
         </PopoverContent>
       </Popover>
       
-      {selectedPersonaObject && (
-         <div className="p-4 bg-utexas-lightgray rounded-md border border-gray-200">
-             <h3 className="font-medium text-utexas-navy">{selectedPersonaObject.name}, {selectedPersonaObject.age}</h3>
-             <p className="text-sm text-gray-500 mt-1">{selectedPersonaObject.scenario}</p>
-             
-             <p className="text-sm font-medium mt-2">Diagnosis:</p>
-             <p className="text-sm">{selectedPersonaObject.diagnosis}</p>
-             
-             {selectedPersonaObject.scenario_goal && (
-               <>
-                 <p className="text-sm font-medium mt-2">Scenario Goal:</p>
-                 <p className="text-sm">{selectedPersonaObject.scenario_goal}</p>
-               </>
-             )}
-             
-             {selectedPersonaObject.background?.clinical && (
-               <>
-                 <p className="text-sm font-medium mt-2">Clinical Background:</p>
-                 <p className="text-sm">{selectedPersonaObject.background.clinical}</p>
-               </>
-             )}
-         </div>
-      )}
+      {/* REMOVE the block displaying selectedPersonaObject details */}
+      {/* {selectedPersonaObject && ( ... ) } */}
+
     </div>
   );
 };

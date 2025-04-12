@@ -1,214 +1,292 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Toggle } from "@/components/ui/toggle";
 import { toast } from '@/lib/toast';
 import { useSocket } from '@/contexts/SocketContext';
 import { PersonaData } from '@/types/persona';
+import { getBrowserSupportedMimeType, MimeType, convertBlobToBase64 } from 'hume';
 
 interface ConversationControlProps {
   onStatusChange?: (isActive: boolean) => void;
   selectedPersona: PersonaData | null;
 }
 
+const mimeTypeResult = getBrowserSupportedMimeType();
+const mimeType = mimeTypeResult.success ? mimeTypeResult.mimeType : MimeType.WEBM;
+console.log(`Using mimeType: ${mimeType} for MediaRecorder.`);
+
 const ConversationControl = ({ 
   selectedPersona 
 }: ConversationControlProps) => {
   const { createSession, endSession, session, isConnected, socket } = useSocket();
   const isActive = !!session;
-
-  // Add a state to prevent rapid double clicks/calls
   const [isToggling, setIsToggling] = useState(false);
-  
-  // State for audio recording
+  const [isMuted, setIsMuted] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null); // Store the stream to stop tracks later
+  const streamRef = useRef<MediaStream | null>(null); 
 
-  // Function to start recording
+  // *** Refs to hold latest state for error handler closure ***
+  const isTogglingRef = useRef(isToggling);
+  const isActiveRef = useRef(isActive);
+
+  // *** Effect to keep refs updated ***
+  useEffect(() => {
+    isTogglingRef.current = isToggling;
+    isActiveRef.current = isActive;
+  }, [isToggling, isActive]);
+
   const startRecording = async () => {
+    console.log("[startRecording] Entry.");
+    if (!session?.id) {
+        console.error("[startRecording] FAILED: No active session ID.");
+        return false;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        console.warn("[startRecording] SKIPPED: Already recording.");
+        return true; 
+    }
+
     try {
       if (streamRef.current) {
-          console.warn("Stream already exists. Stopping tracks.");
+          console.warn("[startRecording] Cleaning up stale stream...");
           streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
       }
       
       streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("Microphone access granted, stream obtained.");
+      console.log("[startRecording] getUserMedia SUCCESS."); 
 
-      const recorder = new MediaRecorder(streamRef.current);
+      console.log("[startRecording] Creating MediaRecorder with explicit mimeType...");
+      const recorder = new MediaRecorder(streamRef.current, { mimeType: mimeType });
       mediaRecorderRef.current = recorder;
-      audioChunksRef.current = []; // Clear previous chunks
+      console.log("[startRecording] MediaRecorder CREATED.");
 
-      recorder.ondataavailable = (event) => {
-        // Only require socket connection and non-empty data
-        if (event.data.size > 0 && socket) { 
-          // Get session ID directly if session object exists, otherwise skip emit
-          const currentSessionId = session?.id;
-          if (currentSessionId) {
-            console.log("Audio chunk available, size:", event.data.size, "for session:", currentSessionId);
-            socket.emit('VOICE_INPUT', { sessionId: currentSessionId, audioChunk: event.data });
-          } else {
-            console.log("Audio chunk available, but session ID not ready yet.");
+      recorder.ondataavailable = async (event) => {
+        if (event.data.size > 0 && socket && session?.id) { 
+          try {
+            const encodedAudioData = await convertBlobToBase64(event.data);
+            socket.emit('VOICE_INPUT', { sessionId: session.id, encodedAudioData: encodedAudioData });
+          } catch (error) {
+              console.error("[ondataavailable] Error converting Blob to Base64:", error);
           }
-        } else {
-            // Log why it might be skipped
-            console.log(`Skipping audio chunk: size=${event.data.size}, socket=${!!socket}`);
-        }
+        } 
       };
 
       recorder.onstart = () => {
-          console.log("MediaRecorder started");
+          console.log(`>>> [onstart] MediaRecorder started.`);
       };
 
       recorder.onstop = () => {
-        console.log("MediaRecorder stopped");
+        console.log(`>>> [onstop] MediaRecorder stopped.`);
+        mediaRecorderRef.current = null; 
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop()); // Stop mic access
+            streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
-            console.log("Microphone stream tracks stopped.");
         }
-        // Optional: Send a final signal if needed
       };
       
       recorder.onerror = (event) => {
-          console.error("MediaRecorder error:", event);
+          console.error(">>> [onerror] MediaRecorder error:", event);
           toast.error("Recording Error", { description: "An error occurred during audio recording." });
-          stopRecording(); // Attempt to stop on error
-          setIsToggling(false); // Reset toggle lock
+          stopRecording(); 
+          if (session?.id) { endSession(); }
       }
 
-      // Start recording, collecting data in chunks (e.g., every 500ms)
-      recorder.start(500); 
+      console.log("[startRecording] Calling recorder.start(100)...");
+      recorder.start(100); 
+      console.log(`[startRecording] recorder.start(100) CALLED. State: ${mediaRecorderRef.current?.state}`);
+      return true; 
       
     } catch (error) {
-      console.error("Error starting recording:", error);
+      console.error("[startRecording] CATCH block error:", error);
       toast.error("Microphone Error", { description: "Could not start audio recording. Please check permissions." });
-      setIsToggling(false); // Reset toggle lock
-      throw error; // Re-throw to prevent session start
+      if (streamRef.current) { 
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+      }
+      mediaRecorderRef.current = null;
+      if (session?.id) { endSession(); }
+      return false; 
     }
   };
 
-  // Function to stop recording
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        console.log("Attempting to stop MediaRecorder...")
-        mediaRecorderRef.current.stop();
+  const stopRecording = useCallback(() => {
+    console.log("[stopRecording] Entry. Current state:", mediaRecorderRef.current?.state);
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+        console.log(`[stopRecording] Attempting to stop MediaRecorder (state: ${recorder.state})...`)
+        recorder.ondataavailable = null;
+        recorder.onerror = null; 
+        recorder.onstop = null;
+        
+        try {
+            console.log("[stopRecording] Calling recorder.stop()...");
+            recorder.stop();
+            console.log("[stopRecording] recorder.stop() CALLED.");
+        } catch (error) {
+            console.error("[stopRecording] Error calling recorder.stop():", error);
+        }
     }
-    if (streamRef.current) { // Ensure stream tracks are stopped even if recorder failed
-        console.log("Stopping stream tracks explicitly...");
+    if (streamRef.current) {
+        console.log("[stopRecording] Cleaning up stream tracks...");
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
     }
-    mediaRecorderRef.current = null;
-  };
+    mediaRecorderRef.current = null; 
+    setIsMuted(false);
+    console.log("[stopRecording] Exit.");
+  }, []);
   
-  // Cleanup recording on component unmount or session end
   useEffect(() => {
       return () => {
-          console.log("ConversationControl unmounting or session ended, ensuring recorder stops.");
+          console.log("ConversationControl unmounting, ensuring cleanup.");
           stopRecording();
       };
-  }, []); // Run only on mount/unmount
+  }, []);
   
   useEffect(() => {
-      // If session ends externally (e.g., disconnect), stop recording
-      if (!session && mediaRecorderRef.current?.state === 'recording') {
-          console.log("Session ended, stopping recording.");
+      if (session && (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive')) {
+          console.log("Session detected & recorder inactive/null, attempting to start recording...");
+          startRecording(); 
+      } 
+      else if (!session && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          console.log("Session ended or null & recorder active, ensuring recording stops.");
           stopRecording();
       }
   }, [session]);
 
-  const handleToggleConversation = async () => {
-    console.log("[handleToggleConversation] Called. isActive:", isActive, "isToggling:", isToggling);
-    if (isToggling) {
-        console.log("[handleToggleConversation] Already toggling, exiting.");
-        return; 
-    }
+  const handleToggleConversation = useCallback(async () => {
+    console.log("[handleToggleConversation] Called. isActive:", isActiveRef.current, "isToggling:", isTogglingRef.current);
+    if (isTogglingRef.current) return; 
     setIsToggling(true);
 
-    if (!isConnected) {
-      toast.error("Not connected", { description: "Cannot start, not connected to server." });
-      setIsToggling(false);
-      return;
-    }
-
-    if (!isActive) {
-      // --- Start Conversation ---
-      console.log("[handleToggleConversation] Attempting to START session.");
-      if (!selectedPersona) {
-        toast.error("No Persona Selected", { description: "Please select a persona before starting." });
+    try { 
+        if (!isConnected) {
+          toast.error("Not connected", { description: "Cannot start, not connected to server." });
+          return;
+        }
+    
+        if (!isActiveRef.current) {
+          console.log("[handleToggleConversation] Attempting to START session.");
+          if (!selectedPersona) {
+            toast.error("No Persona Selected", { description: "Please select a persona before starting." });
+            return;
+          }
+          try {
+            const studentId = "student123"; 
+            console.log("[handleToggleConversation] Emitting create_session...");
+            createSession(studentId, selectedPersona); 
+          } catch (error) {
+            console.error("Error during createSession call:", error);
+            toast.error("Session Error", { description: "Failed to initiate session on server." });
+            setIsToggling(false);
+          }
+        } else {
+          console.log("[handleToggleConversation] Attempting to END session.");
+          stopRecording(); 
+          console.log("[handleToggleConversation] Emitting end_session...");
+          endSession(); 
+          setIsMuted(false);
+        }
+    } catch(e) {
+        console.error("[handleToggleConversation] Unexpected error:", e);
         setIsToggling(false);
-        return;
-      }
-      
-      try {
-        // Start recording FIRST (which includes getting permissions)
-        await startRecording();
-        
-        const studentId = "student123"; // Placeholder
-        console.log("[handleToggleConversation] Emitting create_session with full persona data:", selectedPersona);
-        createSession(studentId, selectedPersona); 
-        toast.success("Starting conversation...");
-        // Don't reset isToggling here; wait for session confirmation
-      } catch (error) {
-        console.error("Failed to start session or recording:", error);
-        // No need for extra toast here, startRecording handles mic errors
-        stopRecording(); // Ensure cleanup if session creation failed after mic started
-        setIsToggling(false); 
-      }
-    } else {
-      // --- End Conversation ---
-      console.log("[handleToggleConversation] Attempting to END session.");
-      stopRecording(); // Stop recording first
-      console.log("[handleToggleConversation] Emitting end_session...");
-      endSession();
-      toast("Conversation ended");
-      // Don't reset isToggling here; wait for session to become null
-    }
+    } 
+  }, [isConnected, selectedPersona, createSession, endSession, stopRecording]);
 
-    // Reset toggle lock based on state change or timeout?
-    // Let's remove the timeout and rely on isActive change derived from session
-    // setIsToggling(false); // We need to reset this based on successful start/end
-    // A better approach might be useEffect watching isActive derived from session
-    // For now, manually resetting after a delay might be okay for UI feedback
-     setTimeout(() => setIsToggling(false), 500); 
-
-  };
-
-  // Reset isToggling when session state actually changes
   useEffect(() => {
-      setIsToggling(false);
+      if (isTogglingRef.current && isActive === isActiveRef.current) {
+         console.log(`[Effect isActive: ${isActive}] Resetting isToggling flag.`);
+         setIsToggling(false);
+      }
   }, [isActive]);
 
+  // *** useEffect for generic error listener - SIMPLIFY DEPS ***
+  useEffect(() => {
+    const handleError = (error: { message: string }) => {
+      // Use refs to check state at the time error occurs
+      if (isTogglingRef.current && !isActiveRef.current) {
+        console.error("[ConversationControl] Received error during session start attempt:", error);
+        toast.error("Session Start Failed", { description: error.message || "Unknown server error" });
+        // Still reset state if error happens during start toggle
+        setIsToggling(false);
+      }
+    };
+
+    if (socket) {
+      socket.on('error', handleError);
+      console.log("[ConversationControl] Attached generic error listener.");
+    } else {
+      console.log("[ConversationControl] Socket not ready, cannot attach error listener.");
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('error', handleError);
+        console.log("[ConversationControl] Detached generic error listener.");
+      }
+    };
+    // *** Change dependencies to only [socket] ***
+  }, [socket]); 
+
+  // *** Mute/Unmute Logic ***
+  const handleToggleMute = useCallback(() => {
+    if (!streamRef.current) {
+      console.warn("[handleToggleMute] No stream available.");
+      return;
+    }
+    const audioTracks = streamRef.current.getAudioTracks();
+    if (audioTracks.length === 0) {
+        console.warn("[handleToggleMute] No audio tracks found in stream.");
+        return;
+    }
+    const newState = !isMuted;
+    audioTracks[0].enabled = !newState;
+    setIsMuted(newState);
+    console.log(`[handleToggleMute] Mic muted: ${newState}`);
+  }, [isMuted]);
+
   return (
-    <div className="mt-4">
-      <Button
-        className={`w-full py-6 text-base flex items-center gap-2 ${
-          isActive 
-            ? "bg-destructive hover:bg-destructive/90" 
-            : "bg-utexas-orange hover:bg-utexas-orange/90"
-        }`}
-        onClick={handleToggleConversation}
-        disabled={!isConnected || (!isActive && !selectedPersona)}
-      >
-        {isActive ? (
-          <>
+    <div className="mt-4 space-y-3">
+      {/* Flex container for buttons */}
+      <div className="flex gap-2">
+        <Button
+          className={`flex-1 py-6 text-base flex items-center justify-center gap-2 ${
+            isActive
+              ? "bg-destructive hover:bg-destructive/90"
+              : "bg-utexas-orange hover:bg-utexas-orange/90"
+          }`}
+          onClick={handleToggleConversation}
+          disabled={!isConnected || isToggling || (!isActive && !selectedPersona?.conversation_enabled)}
+        >
+          {isToggling ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : isActive ? (
             <MicOff className="h-5 w-5" />
-            End Conversation
-          </>
-        ) : (
-          <>
+          ) : (
             <Mic className="h-5 w-5" />
-            Start Conversation
-          </>
-        )}
-      </Button>
-      
+          )}
+          {isToggling ? 'Processing...' : isActive ? 'End Conversation' : 'Start Conversation'}
+        </Button>
+
+        {/* Mute Toggle Button */}
+        <Toggle
+          pressed={isMuted}
+          onPressedChange={handleToggleMute}
+          disabled={!isActive || isToggling} 
+          className="px-3 py-6" 
+          aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+        >
+          {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+        </Toggle>
+      </div>
+
       {isActive && (
-        <div className="flex items-center justify-center gap-2 mt-3 animate-pulse-slow">
-          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+        <div className="flex items-center justify-center gap-2 animate-pulse-slow">
+          <div className={`w-3 h-3 rounded-full ${isMuted ? 'bg-gray-400' : 'bg-red-500'}`}></div> 
           <span className="text-sm text-muted-foreground">
-            {mediaRecorderRef.current?.state === 'recording' ? 'Listening...' : 'Mic Active'}
+            {mediaRecorderRef.current?.state === 'recording' ? (isMuted ? 'Mic Muted' : 'Listening...') : 'Initializing Mic...'}
           </span>
         </div>
       )}

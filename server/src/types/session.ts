@@ -26,6 +26,9 @@ export interface PersonaData {
   age: number;
   diagnosis: string;
   scenario_goal: string;
+  system_prompt: string;
+  voice_id?: string;
+  config_id?: string;
   background: PersonaBackground;
   mge_nodes: MgeNodes;
   conversational_milestones: ConversationalMilestone[];
@@ -45,9 +48,10 @@ export interface Session {
 }
 
 export interface Message {
-  type: 'student' | 'ai' | 'faculty';
-  content: string;
-  timestamp: Date | string; // Allow string for serialization
   sessionId: string;
-  senderId: string; 
+  senderId: string; // 'student123', 'faculty456', 'HUME_AI'
+  // Add 'transcription' type
+  type: 'student' | 'ai' | 'faculty' | 'transcription'; 
+  content: string;
+  timestamp: Date;
 } 

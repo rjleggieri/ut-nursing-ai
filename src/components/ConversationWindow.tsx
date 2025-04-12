@@ -1,37 +1,36 @@
 import { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Message } from '@/contexts/SocketContext';
-import { formatTimestamp } from '@/lib/utils'; // Import from utils
+import { ClientMessage } from '@/contexts/SocketContext';
+import { formatTimestamp } from '@/lib/utils';
 
 interface ConversationWindowProps {
   isActive: boolean;
-  messages: Message[]; // Receives all messages from context
+  messages: ClientMessage[];
 }
 
 const ConversationWindow = ({ isActive, messages }: ConversationWindowProps) => {
+  console.log('[ConversationWindow] Received messages prop:', messages);
+  
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Filter messages to only show AI/Patient
-  const patientMessages = messages.filter(msg => msg.type === 'ai');
+  const conversationMessages = messages.filter(msg => msg.type === 'ai' || msg.type === 'transcription');
+  console.log('[ConversationWindow] Filtered conversationMessages:', conversationMessages);
   
-  // Scroll to bottom when patientMessages change
   useEffect(() => {
     if (scrollAreaRef.current) {
       const scrollableViewport = scrollAreaRef.current.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
       if (scrollableViewport) {
-          // Slight delay to allow DOM update before scrolling
           setTimeout(() => {
               scrollableViewport.scrollTop = scrollableViewport.scrollHeight;
           }, 50); 
       }
     }
-  }, [patientMessages]); // Depend on filtered messages
+  }, [conversationMessages]);
   
-  // Helper to determine sender display name
-  const getSenderName = (type: 'student' | 'ai' | 'faculty'): string => {
-      // Simplified for this window's purpose
+  const getSenderName = (type: ClientMessage['type']): string => {
       if (type === 'ai') return 'Patient (AI)';
-      return 'Other'; // Should ideally not happen if filtered correctly
+      if (type === 'transcription') return 'Student (Voice)';
+      return 'Other';
   };
   
   return (
@@ -41,7 +40,7 @@ const ConversationWindow = ({ isActive, messages }: ConversationWindowProps) => 
       </div>
       
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 chat-scrollbar bg-white">
-        {patientMessages.length === 0 ? (
+        {conversationMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             {isActive 
               ? "Waiting for conversation to begin..." 
@@ -49,13 +48,17 @@ const ConversationWindow = ({ isActive, messages }: ConversationWindowProps) => 
           </div>
         ) : (
           <div className="space-y-4">
-            {patientMessages.map((message, index) => (
+            {conversationMessages.map((message, index) => (
               <div
                 key={`${message.sessionId}-${message.timestamp}-${index}`}
-                className={`flex justify-start`}
+                className={`flex ${message.type === 'transcription' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words bg-gray-100 text-gray-900`}
+                  className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words ${
+                    message.type === 'transcription'
+                      ? 'bg-utexas-orange text-white'
+                      : 'bg-gray-100 text-gray-900'
+                  }`}
                 >
                   <div className="text-xs font-medium mb-1 opacity-80">
                     {getSenderName(message.type)} 

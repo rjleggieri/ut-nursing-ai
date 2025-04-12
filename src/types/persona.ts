@@ -29,6 +29,10 @@ export interface PersonaData {
   age: number;
   diagnosis: string;
   scenario_goal: string;
+  system_prompt: string;
+  voice_id?: string;
+  config_id?: string;
+  conversation_enabled?: boolean;
   background: PersonaBackground;
   mge_nodes: MgeNodes;
   conversational_milestones: ConversationalMilestone[];

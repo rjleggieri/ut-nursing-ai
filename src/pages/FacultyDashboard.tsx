@@ -98,8 +98,8 @@ const FacultyDashboard = () => {
     
     sendMessage({
       type: 'faculty',
+      senderId: 'faculty456',
       content: feedbackText.trim(),
-      sessionId: connectedSession.id
     });
 
     setFeedbackText('');
@@ -117,78 +117,82 @@ const FacultyDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-utexas-gray flex flex-col">
+    <div className="h-full bg-utexas-gray flex flex-col">
       <Header />
       
-      <main className="container flex-1 pb-8 flex flex-col">
-        <h1 className="text-2xl font-bold mb-6 text-utexas-navy">Faculty Dashboard</h1>
+      <main className="container mx-auto flex-1 py-4 flex flex-col overflow-hidden">
+        <h1 className="text-xl font-bold mb-4 text-utexas-navy flex-shrink-0">Faculty Dashboard</h1>
         
         {!connectedSession ? (
-          <div className="max-w-md mx-auto bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-medium mb-4">Connect to Student Session</h2>
-            
-            <div className="flex items-center space-x-2 mb-6">
-              <div className="flex-1">
-                <Input
-                  value={inputSessionId}
-                  onChange={(e) => setInputSessionId(e.target.value)}
-                  placeholder="Enter Session ID"
-                />
-              </div>
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={handlePasteFromClipboard}
-                title="Paste from clipboard"
-              >
-                <Clipboard className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {connectionError && (
-                <p className="text-sm text-red-600 mb-4 text-center">{connectionError}</p>
-            )}
-            
-            <Button 
-              className="w-full" 
-              onClick={handleConnect} 
-              disabled={isConnecting || !inputSessionId.trim() || !socketConnected}
-            >
-              {isConnecting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-2 h-4 w-4" />
-              )}
-              {isConnecting ? 'Connecting...' : 'Connect to Session'}
-            </Button>
-          </div>
+          <div className="flex-1 flex items-center justify-center">
+             <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
+               <h2 className="text-lg font-medium mb-4">Connect to Student Session</h2>
+               
+               <div className="flex items-center space-x-2 mb-6">
+                 <div className="flex-1">
+                   <Input
+                     value={inputSessionId}
+                     onChange={(e) => setInputSessionId(e.target.value)}
+                     placeholder="Enter Session ID"
+                   />
+                 </div>
+                 <Button
+                   size="icon"
+                   variant="outline"
+                   onClick={handlePasteFromClipboard}
+                   title="Paste from clipboard"
+                 >
+                   <Clipboard className="h-4 w-4" />
+                 </Button>
+               </div>
+               
+               {connectionError && (
+                   <p className="text-sm text-red-600 mb-4 text-center">{connectionError}</p>
+               )}
+               
+               <Button 
+                 className="w-full" 
+                 onClick={handleConnect} 
+                 disabled={isConnecting || !inputSessionId.trim() || !socketConnected}
+               >
+                 {isConnecting ? (
+                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                 ) : (
+                   <Search className="mr-2 h-4 w-4" />
+                 )}
+                 {isConnecting ? 'Connecting...' : 'Connect to Session'}
+               </Button>
+             </div>
+           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-            <div className="lg:col-span-8 space-y-6 flex flex-col">
-              <div className="bg-white p-4 rounded-lg shadow flex-1 flex flex-col">
-                <h2 className="font-semibold text-lg mb-2">Student Session: {connectedSession.id}</h2>
-                <div className="flex items-center text-sm text-emerald-600 mb-4">
-                  <div className="h-2 w-2 rounded-full bg-emerald-600 mr-2"></div>
-                  Connected
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 overflow-hidden">
+            <div className="lg:col-span-7 flex flex-col overflow-hidden">
+              <div className="bg-white p-4 rounded-lg shadow flex-1 flex flex-col overflow-hidden h-full">
+                <div className="flex-shrink-0 mb-3">
+                  <h2 className="font-semibold text-lg">Student Session: {connectedSession.id}</h2>
+                  <div className="flex items-center text-sm text-emerald-600 mt-1">
+                    <div className="h-2 w-2 rounded-full bg-emerald-600 mr-2"></div>
+                    Connected
+                  </div>
                 </div>
                 
-                <Tabs defaultValue="conversation" className="w-full flex flex-col flex-1">
-                  <TabsList className="grid grid-cols-2">
+                <Tabs defaultValue="conversation" className="w-full flex flex-col flex-1 min-h-0">
+                  <TabsList className="grid grid-cols-2 flex-shrink-0">
                     <TabsTrigger value="conversation">Live Conversation</TabsTrigger>
                     <TabsTrigger value="metrics">Metrics & Analysis</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="conversation" className="mt-4 flex-1">
+                  <TabsContent value="conversation" className="mt-2 flex-1 overflow-hidden">
                     <ConversationWindow 
                       messages={allMessages}
                       isActive={true}
                     />
                   </TabsContent>
                   
-                  <TabsContent value="metrics" className="mt-4 flex-1">
-                    <div className="p-6 text-center border rounded-md h-full flex items-center justify-center">
+                  <TabsContent value="metrics" className="mt-2 flex-1 overflow-hidden">
+                    <div className="p-4 text-center border rounded-md h-full flex items-center justify-center">
                       <div className="text-muted-foreground">
-                        Communication metrics and analysis will appear here as the conversation progresses.
+                        Metrics & Analysis Placeholder
                       </div>
                     </div>
                   </TabsContent>
@@ -196,57 +200,60 @@ const FacultyDashboard = () => {
               </div>
             </div>
             
-            <div className="lg:col-span-4 flex flex-col">
-              <div className="bg-white p-4 rounded-lg shadow h-full flex flex-col">
-                <h2 className="font-semibold text-lg mb-4">Student/Faculty Chat</h2>
-                
-                <ScrollArea ref={feedbackScrollAreaRef} className="flex-1 mb-4 border rounded-md bg-white p-4">
-                  {feedbackMessages.length === 0 ? (
-                     <div className="flex items-center justify-center h-full text-muted-foreground">
-                        Chat messages will appear here.
-                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {feedbackMessages.map((message, index) => (
-                        <div 
-                          key={`${message.sessionId}-${message.timestamp}-${index}`}
-                          className={`flex ${message.type === 'faculty' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words ${
-                              message.type === 'faculty'
-                                ? 'bg-utexas-orange text-white'
-                                : 'bg-blue-100 text-blue-900'
-                            }`}
+            <div className="lg:col-span-5 flex flex-col overflow-hidden">
+              <div className="bg-white p-0 rounded-lg shadow h-full flex flex-col">
+                <div className="p-3 border-b bg-utexas-navy text-white font-medium flex-shrink-0">
+                  Student/Faculty Chat
+                </div>
+                <div className="flex-1 flex flex-col min-h-0 p-4">
+                  <ScrollArea ref={feedbackScrollAreaRef} className="flex-1 mb-4 border rounded-md bg-white p-4">
+                    {feedbackMessages.length === 0 ? (
+                       <div className="flex items-center justify-center h-full text-muted-foreground">
+                          Chat messages will appear here.
+                       </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {feedbackMessages.map((message, index) => (
+                          <div 
+                            key={`${message.sessionId}-${message.timestamp}-${index}`}
+                            className={`flex ${message.type === 'faculty' ? 'justify-end' : 'justify-start'}`}
                           >
-                            <p className="mb-1">{message.content}</p>
-                            <div className="text-xs opacity-70 mt-1 text-right">
-                              {formatTimestamp(message.timestamp)}
+                            <div
+                              className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words ${
+                                message.type === 'faculty'
+                                  ? 'bg-utexas-orange text-white'
+                                  : 'bg-blue-100 text-blue-900'
+                              }`}
+                            >
+                              <p className="mb-1">{message.content}</p>
+                              <div className="text-xs opacity-70 mt-1 text-right">
+                                {formatTimestamp(message.timestamp)}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                  
+                  <form 
+                    onSubmit={(e) => { e.preventDefault(); handleSendFeedback(); }}
+                    className="mt-auto pt-4 border-t"
+                  >
+                    <div className="flex gap-2">
+                      <Input
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-1"
+                        disabled={!connectedSession || !socketConnected}
+                      />
+                      <Button type="submit" disabled={!feedbackText.trim() || !connectedSession || !socketConnected}>
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  )}
-                </ScrollArea>
-                
-                <form 
-                  onSubmit={(e) => { e.preventDefault(); handleSendFeedback(); }}
-                  className="mt-auto pt-4 border-t"
-                >
-                  <div className="flex gap-2">
-                    <Input
-                      value={feedbackText}
-                      onChange={(e) => setFeedbackText(e.target.value)}
-                      placeholder="Type a message..."
-                      className="flex-1"
-                      disabled={!connectedSession || !socketConnected}
-                    />
-                    <Button type="submit" disabled={!feedbackText.trim() || !connectedSession || !socketConnected}>
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </form>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
