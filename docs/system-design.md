@@ -143,17 +143,41 @@ GET  /api/personas/:id             # Get full YAML content for a specific person
     *   Backend saves Student transcription and AI response text as `Message` objects (`type: 'student'`, `type: 'ai'`) and emits `NEW_MESSAGE` for both.
     *   Frontend renders transcription in `ConversationWindow`, plays AI audio, updates chat log (`ConversationWindow` with AI message, `FeedbackWindow` with Student message).
 
-3.  **Faculty Monitoring & Chat**
+3.  **Faculty Monitoring & Chat (Updated Flow)**
     *   Faculty enters session ID, clicks Join.
     *   Frontend sends `JOIN_SESSION`.
     *   Backend validates ID, adds faculty to session room, retrieves session data.
     *   Backend emits `JOINED_SESSION` with full session object back to faculty.
     *   Backend emits `MESSAGE_HISTORY` to faculty.
-    *   Faculty views `ConversationWindow` (populated by messages from context) and `FeedbackWindow` (filtered for student/faculty chat).
-    *   Faculty types chat message, frontend sends `TEXT_MESSAGE` (`type: 'faculty'`).
-    *   Backend saves message, emits `NEW_MESSAGE` to room.
-    *   Student types chat message, frontend sends `TEXT_MESSAGE` (`type: 'student'`).
-    *   Backend saves message, emits `NEW_MESSAGE` to room.
+    *   **Faculty Dashboard State:**
+        *   Sets `sessionStatus` to `'connected'`.
+        *   Stores the received session object in `connectedSession` state.
+        *   Populates local `sessionMessages` state with initial messages filtered from `allMessages` (from context/history).
+    *   **Message Updates (While Connected):**
+        *   As the backend emits `NEW_MESSAGE` to the room (for AI, Student transcript, Student chat, or Faculty chat), the faculty dashboard's `useEffect` hook appends these new messages for the current `connectedSession.id` to its local `sessionMessages` state.
+    *   **Display:**
+        *   `ConversationWindow` displays messages filtered from local `sessionMessages` state (`type: 'ai'` or `'transcription'`).
+        *   `FeedbackWindow` displays messages filtered from local `sessionMessages` state (`type: 'student'` or `'faculty'`).
+    *   **Faculty Chat Input:**
+        *   Faculty types chat message, frontend sends `TEXT_MESSAGE` (`type: 'faculty'`).
+        *   Backend saves message, emits `NEW_MESSAGE` to room.
+    *   **Student Chat Input:**
+        *   Student types chat message, frontend sends `TEXT_MESSAGE` (`type: 'student'`).
+        *   Backend saves message, emits `NEW_MESSAGE` to room.
+    *   **Session End Handling:**
+        *   Backend emits `SESSION_ENDED` event when student disconnects or session ends.
+        *   Faculty Dashboard receives event via context, updates `sessionStatus` to `'ended'`. 
+        *   Crucially, it **retains** the `connectedSession` data and the populated local `sessionMessages` state.
+        *   `FeedbackWindow` input becomes disabled.
+    *   **Saving:**
+        *   Faculty reviews transcript, chat, and completes Evaluation tab.
+        *   Faculty clicks "Save Session" button.
+        *   Frontend gathers data from local state: `connectedSession` details, `sessionMessages` (filtered into transcript and chat logs), `evaluationScores`, `evaluationNotes`.
+        *   Frontend constructs a JSON object containing this data.
+        *   Frontend triggers a browser download of the generated JSON file.
+    *   **Disconnecting:**
+        *   Faculty clicks "Disconnect" button.
+        *   Frontend resets state: `sessionStatus` to `'disconnected'`, clears `connectedSession`, `sessionMessages`, evaluation state.
 
 ## Security Considerations
 - WebSocket connections require authentication (TBD).
@@ -176,8 +200,10 @@ GET  /api/personas/:id             # Get full YAML content for a specific person
 - Display transcript and AI messages in `ConversationWindow`.
 
 ### Phase 3: Refinements & Faculty Features
-- Implement Evaluation tab functionality (scoring criteria, notes) - UI implemented, state management/saving TBD.
-- Refine UI/UX based on testing (e.g., quote handling, layout adjustments).
+- Implement Evaluation tab functionality (scoring criteria, notes) - UI & state management implemented, data saving TBD.
+- Implement Faculty Dashboard state persistence (messages, session info retained after student disconnect) - **Completed**.
+- Implement client-side session data saving (JSON download) - **Completed**.
+- Refine UI/UX based on testing (e.g., quote handling, layout adjustments, Evaluation "Clear" button).
 - Implement authentication/authorization if needed.
 
 ### Phase 4: Testing & Deployment

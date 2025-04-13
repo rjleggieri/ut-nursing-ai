@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Clipboard, ArrowRight, Loader2 } from 'lucide-react';
+import { Search, Clipboard, ArrowRight, Loader2, Save, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/lib/toast';
@@ -9,11 +9,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { useSocket } from '@/contexts/SocketContext';
 import ConversationWindow from '@/components/ConversationWindow';
-import { Session } from '@/contexts/SocketContext';
+import { Session, ClientMessage } from '@/contexts/SocketContext';
 import { formatTimestamp } from '@/lib/utils';
 import FeedbackWindow from '@/components/FeedbackWindow';
+import EvaluationTab from '@/components/EvaluationTab';
 
 // Define evaluation criteria and component here
+/*
 const evaluationCriteria = [
   {
     title: "Communication Skills",
@@ -57,17 +59,23 @@ const evaluationCriteria = [
   },
 ];
 
-const EvaluationTab = () => {
-  // TODO: Implement state management for radio button selections and notes
+// Modify EvaluationTab signature to accept props
+interface EvaluationTabProps {
+  scores: Record<number, string>;
+  setScores: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  notes: string;
+  setNotes: React.Dispatch<React.SetStateAction<string>>;
+}
+
+const EvaluationTab = ({ scores, setScores, notes, setNotes }: EvaluationTabProps) => {
   return (
-    <ScrollArea className="h-full p-4"> 
-      {/* Wrap criteria and notes in a single div for spacing */}
-      <div className="space-y-6"> 
+    <ScrollArea className="h-full p-4">
+      <div className="space-y-6">
         {evaluationCriteria.map((criterion, index) => (
-          <div key={index} className="bg-white rounded-lg p-4 shadow-sm border"> 
+          <div key={index} className="bg-white rounded-lg p-4 shadow-sm border">
             <h3 className="font-semibold text-lg mb-1 text-utexas-navy">{criterion.title}</h3>
             <p className="text-sm text-gray-600 mb-3">{criterion.description}</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-2"> 
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
               {["Poor", "Fair", "Satisfactory", "Very good", "Excellent"].map((option) => (
                 <label key={option} className="flex items-center text-sm cursor-pointer">
                   <input 
@@ -75,6 +83,9 @@ const EvaluationTab = () => {
                     name={`criterion-${index}`} 
                     value={option} 
                     className="mr-1.5 h-4 w-4 text-utexas-orange focus:ring-utexas-orange border-gray-300" 
+                    // Add checked and onChange
+                    checked={scores[index] === option}
+                    onChange={(e) => setScores(prev => ({ ...prev, [index]: e.target.value }))}
                   />
                   {option}
                 </label>
@@ -83,24 +94,28 @@ const EvaluationTab = () => {
           </div>
         ))}
         
-        {/* Add Additional Notes Section */}
         <div className="bg-white rounded-lg p-4 shadow-sm border">
            <h3 className="font-semibold text-lg mb-2 text-utexas-navy">Additional Notes</h3>
            <Textarea 
              placeholder="Enter any additional feedback or observations here..."
              rows={5}
              className="text-sm"
-             // TODO: Add value and onChange handler for state management
+             // Add value and onChange
+             value={notes}
+             onChange={(e) => setNotes(e.target.value)}
            />
          </div>
       </div>
     </ScrollArea>
   );
 };
+*/
+
+// Define Session Status type
+type SessionStatus = 'disconnected' | 'connecting' | 'connected' | 'ended';
 
 const FacultyDashboard = () => {
   const [inputSessionId, setInputSessionId] = useState('');
-  const [feedbackText, setFeedbackText] = useState('');
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null);
   const { 
     joinSession, 
@@ -110,57 +125,98 @@ const FacultyDashboard = () => {
     isConnected: socketConnected 
   } = useSocket();
   
-  // Local state for faculty connection status
-  const [isConnecting, setIsConnecting] = useState(false);
+  // State to hold the session data *after* successful connection, even if context clears
   const [connectedSession, setConnectedSession] = useState<Session | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('disconnected');
   const [connectionError, setConnectionError] = useState<string | null>(null);
   
-  const feedbackScrollAreaRef = useRef<HTMLDivElement>(null);
+  // Add state for Evaluation Tab
+  const [evaluationScores, setEvaluationScores] = useState<Record<number, string>>({});
+  const [evaluationNotes, setEvaluationNotes] = useState<string>('');
 
-  // Filter messages based on the locally confirmed connected session
-  const feedbackMessages = allMessages.filter(msg => 
-    msg.sessionId === connectedSession?.id && (msg.type === 'student' || msg.type === 'faculty')
+  // Add state for local, persistent session messages
+  const [sessionMessages, setSessionMessages] = useState<ClientMessage[]>([]);
+
+  // Effect to append new messages to local state
+  useEffect(() => {
+    if (connectedSession?.id) {
+      // Create a Set of existing message IDs for quick lookup
+      const existingMessageIds = new Set(sessionMessages.map(m => m.timestamp + m.senderId)); // Use timestamp+senderId as unique key
+      
+      // Filter allMessages from context for NEW messages belonging to the connected session
+      const newMessages = allMessages.filter(msg => 
+        msg.sessionId === connectedSession.id && 
+        !existingMessageIds.has(msg.timestamp + msg.senderId)
+      );
+
+      // If new messages are found, append them
+      if (newMessages.length > 0) {
+        console.log(`[Message Effect] Appending ${newMessages.length} new messages.`);
+        setSessionMessages(prev => [...prev, ...newMessages]);
+      }
+    }
+    // This effect runs whenever the messages from the context change.
+    // It ensures we capture messages even if they arrive slightly after connection.
+  }, [allMessages, connectedSession?.id]); // Rerun when context messages or connected session ID changes
+
+  // Filter local sessionMessages for display in ConversationWindow
+  const conversationMessages = sessionMessages.filter((msg): msg is ClientMessage => 
+    msg.type === 'ai' || msg.type === 'transcription'
   );
   
-  // Scroll feedback area to bottom
-  useEffect(() => {
-    if (feedbackScrollAreaRef.current) {
-        const scrollableViewport = feedbackScrollAreaRef.current.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
-        if (scrollableViewport) {
-            setTimeout(() => {
-                scrollableViewport.scrollTop = scrollableViewport.scrollHeight;
-            }, 50);
-        }
-    }
-  }, [feedbackMessages]);
+  // Filter local sessionMessages for display in FeedbackWindow
+  const feedbackMessages = sessionMessages.filter((msg): msg is ClientMessage => 
+    msg.type === 'student' || msg.type === 'faculty'
+  );
 
-  // Effect to handle connection success/failure after initiating join
+  // Effect to handle session status changes 
   useEffect(() => {
-    if (isConnecting) {
+    const activeSessionId = connectedSession?.id;
+
+    if (sessionStatus === 'connecting') {
       if (contextSession?.id === inputSessionId.trim()) {
-        // Successfully connected to the target session!
+        console.log('Connection successful, setting status to connected');
         setConnectedSession(contextSession);
-        setIsConnecting(false);
+        setSessionStatus('connected');
         setConnectionError(null);
-        toast.success("Connected to student session", {
-          description: `Session ID: ${contextSession.id}`
-        });
+        
+        // Initial load of messages - ADD SAFETY CHECK for allMessages
+        const initialMessages = Array.isArray(allMessages) 
+            ? allMessages.filter(msg => msg.sessionId === contextSession.id)
+            : []; // Default to empty array if allMessages is not an array
+        console.log(`[Status Effect] Initial message load: ${initialMessages.length} messages.`);
+        setSessionMessages(initialMessages);
+        
+        toast.success("Connected to student session", { description: `Session ID: ${contextSession.id}` });
       } 
-      // Note: We need a way to detect failure. The context currently 
-      // doesn't explicitly signal a join *failure* for a specific faculty attempt.
-      // For now, we'll rely on a timeout or the user manually trying again.
-      // A simple timeout example (could be improved):
-      const timer = setTimeout(() => {
-        if (isConnecting && !connectedSession) {
-          setIsConnecting(false);
-          setConnectionError('Connection attempt timed out.');
-          toast.error('Connection Failed', { description: 'Could not connect to the session. Please check the ID and try again.' });
-        }
-      }, 10000); // 10 second timeout
-
-      return () => clearTimeout(timer);
+    } else if (sessionStatus === 'connected') {
+      if (!contextSession || contextSession.id !== activeSessionId) {
+        console.log('Detected session end in context.');
+        setSessionStatus('ended');
+        toast.info("Student session has ended", { description: "You can finish evaluation and save." });
+      }
     }
-  }, [contextSession, isConnecting, inputSessionId]); // Re-run if contextSession changes while connecting
+  }, [contextSession, sessionStatus, inputSessionId, connectedSession, allMessages]); // Added allMessages dependency for initial load
+
+  // Effect for connection timeout (moved from previous effect)
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (sessionStatus === 'connecting') {
+       timer = setTimeout(() => {
+         // If still connecting after timeout, mark as disconnected
+         if (sessionStatus === 'connecting') {
+            console.log('Connection attempt timed out');
+            setSessionStatus('disconnected');
+            setConnectionError('Connection attempt timed out. Please check the ID and try again.');
+            toast.error('Connection Failed', { description: 'Could not connect to the session.' });
+         }
+       }, 10000); // 10 second timeout
+    }
+    // Cleanup timeout if status changes or component unmounts
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [sessionStatus]);
 
   const handleConnect = () => {
     if (!socketConnected) {
@@ -176,21 +232,14 @@ const FacultyDashboard = () => {
     const facultyId = "faculty456";
     
     console.log(`Attempting to join session: ${trimmedSessionId} as faculty: ${facultyId}`);
-    setIsConnecting(true); // Set connecting status
-    setConnectionError(null); // Clear previous errors
-    joinSession(trimmedSessionId, facultyId); // Call context function
-  };
-
-  const handleSendFeedback = () => {
-    if (!feedbackText.trim() || !connectedSession || !socketConnected) return;
-    
-    sendMessage({
-      type: 'faculty',
-      senderId: 'faculty456',
-      content: feedbackText.trim(),
-    });
-
-    setFeedbackText('');
+    setSessionStatus('connecting'); // Set status to connecting
+    setConnectedSession(null); // Clear previous session data
+    setConnectionError(null); 
+    // Clear evaluation AND local messages for new session attempt
+    setEvaluationScores({}); 
+    setEvaluationNotes('');
+    setSessionMessages([]); 
+    joinSession(trimmedSessionId, facultyId);
   };
 
   // Handle paste from clipboard
@@ -215,6 +264,69 @@ const FacultyDashboard = () => {
     setSelectedQuote(null);
   };
 
+  // Add handleSaveSession function
+  const handleSaveSession = () => {
+    if (!connectedSession) return;
+
+    // Use local sessionMessages for transcript/chat logs
+    const currentConversationTranscript = sessionMessages
+      .filter(msg => msg.type === 'ai' || msg.type === 'transcription')
+      .map(msg => ({ 
+        timestamp: msg.timestamp,
+        speaker: msg.type === 'ai' ? `Patient (${connectedSession.personaData?.name ?? 'AI'})` : 'APRN Student',
+        content: msg.content
+      }));
+
+    const currentFacultyStudentChat = sessionMessages
+       .filter(msg => msg.type === 'student' || msg.type === 'faculty')
+       .map(msg => ({ 
+        timestamp: msg.timestamp,
+        speaker: msg.type === 'faculty' ? 'Faculty' : 'Student',
+        content: msg.content
+      }));
+
+    const sessionData = {
+      sessionId: connectedSession.id,
+      studentId: connectedSession.studentId,
+      personaName: connectedSession.personaData?.name ?? 'Unknown',
+      startTime: connectedSession.startTime,
+      endTime: Date.now(), 
+      conversationTranscript: currentConversationTranscript,
+      facultyStudentChat: currentFacultyStudentChat,
+      // Save evaluation scores and notes directly from state
+      evaluation: {
+        scores: evaluationScores, // Save the scores object {0: "Good", 1: "Fair", ...}
+        notes: evaluationNotes
+      }
+    };
+    
+    const jsonString = JSON.stringify(sessionData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `session-${connectedSession.id}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('Session data downloaded successfully!');
+  };
+
+  // Function to manually disconnect/clear the faculty view
+  const handleDisconnect = () => {
+    console.log('Manual disconnect initiated');
+    setSessionStatus('disconnected');
+    setConnectedSession(null);
+    setInputSessionId(''); // Clear the input field
+    setEvaluationScores({});
+    setEvaluationNotes('');
+    setConnectionError(null);
+    // Clear local messages on manual disconnect
+    setSessionMessages([]);
+    toast.info("Disconnected from session view.");
+  };
+
   return (
     <div className="h-full bg-utexas-gray flex flex-col">
       <Header />
@@ -222,7 +334,9 @@ const FacultyDashboard = () => {
       <main className="container mx-auto flex-1 py-4 flex flex-col overflow-hidden">
         <h1 className="text-xl font-bold mb-4 text-utexas-navy flex-shrink-0">Faculty Dashboard</h1>
         
-        {!connectedSession ? (
+        {/* Render Connection Prompt OR Dashboard based on status */} 
+        {(sessionStatus === 'disconnected' || sessionStatus === 'connecting') ? (
+          // Show Connection Prompt Area if disconnected OR connecting
           <div className="flex-1 flex items-center justify-center">
              <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
                <h2 className="text-lg font-medium mb-4">Connect to Student Session</h2>
@@ -233,6 +347,8 @@ const FacultyDashboard = () => {
                      value={inputSessionId}
                      onChange={(e) => setInputSessionId(e.target.value)}
                      placeholder="Enter Session ID"
+                     // Disable input ONLY when actively connecting
+                     disabled={sessionStatus === 'connecting'} 
                    />
                  </div>
                  <Button
@@ -240,67 +356,103 @@ const FacultyDashboard = () => {
                    variant="outline"
                    onClick={handlePasteFromClipboard}
                    title="Paste from clipboard"
+                   // Disable button ONLY when actively connecting
+                   disabled={sessionStatus === 'connecting'}
                  >
                    <Clipboard className="h-4 w-4" />
                  </Button>
                </div>
                
-               {connectionError && (
+               {connectionError && sessionStatus === 'disconnected' && (
+                   // Show error only if disconnected (not during connecting attempt)
                    <p className="text-sm text-red-600 mb-4 text-center">{connectionError}</p>
                )}
                
                <Button 
                  className="w-full" 
                  onClick={handleConnect} 
-                 disabled={isConnecting || !inputSessionId.trim() || !socketConnected}
+                 // Disable button while connecting OR if input is empty/socket down
+                 disabled={sessionStatus === 'connecting' || !inputSessionId.trim() || !socketConnected}
                >
-                 {isConnecting ? (
+                 {/* Show Loader OR Icon based on connecting status */} 
+                 {sessionStatus === 'connecting' ? (
                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                  ) : (
                    <Search className="mr-2 h-4 w-4" />
                  )}
-                 {isConnecting ? 'Connecting...' : 'Connect to Session'}
+                 {/* Show Text based on connecting status */} 
+                 {sessionStatus === 'connecting' ? 'Connecting...' : 'Connect to Session'}
                </Button>
              </div>
            </div>
         ) : (
+          /* Show main dashboard ONLY when connected or ended */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 overflow-hidden">
             <div className="lg:col-span-8 flex flex-col overflow-hidden">
               <div className="bg-white p-4 rounded-lg shadow flex-1 flex flex-col overflow-hidden h-full">
-                <div className="flex-shrink-0 mb-3">
-                  <h2 className="font-semibold text-lg">Student Session: {connectedSession.id}</h2>
-                  <div className="flex items-center text-sm text-emerald-600 mt-1">
-                    <div className="h-2 w-2 rounded-full bg-emerald-600 mr-2"></div>
-                    Connected
+                {/* Header */} 
+                <div className="flex-shrink-0 mb-3 flex justify-between items-start">
+                  <div>
+                    <h2 className="font-semibold text-lg">Student Session: {connectedSession?.id ?? 'Error'}</h2> {/* Should have ID here */}
+                    <div className={`flex items-center text-sm mt-1 ${sessionStatus === 'connected' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      <div className={`h-2 w-2 rounded-full mr-2 ${sessionStatus === 'connected' ? 'bg-emerald-600' : 'bg-amber-600'}`}></div>
+                      {/* Status is only connected or ended in this block */} 
+                      {sessionStatus === 'connected' ? 'Connected' : 'Session Ended'}
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleSaveSession} 
+                        // Disable check simplified as status must be connected/ended here
+                        disabled={!connectedSession}
+                      >
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Session
+                      </Button>
+                      {/* Disconnect Button - Always show if in this state */} 
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={handleDisconnect}
+                      >
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Disconnect
+                      </Button>
                   </div>
                 </div>
-                
+                {/* Tabs */} 
                 <Tabs defaultValue="conversation" className="w-full flex flex-col flex-1 min-h-0">
                   <TabsList className="grid grid-cols-2 flex-shrink-0">
                     <TabsTrigger value="conversation">Live Conversation</TabsTrigger>
-                    <TabsTrigger value="evaluation">Evaluation</TabsTrigger>
+                    <TabsTrigger value="evaluation">Evaluation</TabsTrigger> 
                   </TabsList>
-                  
                   <TabsContent value="conversation" className="mt-2 flex-1 overflow-hidden">
                     <ConversationWindow 
-                      messages={allMessages}
-                      isActive={true}
+                      messages={conversationMessages}
+                      isActive={sessionStatus === 'connected'} 
                       onQuoteSelect={handleQuoteSelect}
                       personaName={connectedSession?.personaData?.name ?? null}
                     />
                   </TabsContent>
-                  
                   <TabsContent value="evaluation" className="mt-2 flex-1 overflow-hidden border rounded-md bg-gray-50">
-                     <EvaluationTab />
+                     <EvaluationTab 
+                       scores={evaluationScores}
+                       setScores={setEvaluationScores}
+                       notes={evaluationNotes}
+                       setNotes={setEvaluationNotes}
+                     />
                   </TabsContent>
                 </Tabs>
               </div>
             </div>
-            
+            {/* Right Pane */} 
             <div className="lg:col-span-4 flex flex-col overflow-hidden">
               <FeedbackWindow 
-                sessionId={connectedSession.id} 
-                isActive={true} 
+                messages={feedbackMessages}
+                sessionId={connectedSession?.id ?? ''} 
+                isActive={sessionStatus === 'connected'} 
                 selectedQuote={selectedQuote}
                 onMessageSent={clearSelectedQuote}
                 currentUserType="faculty"

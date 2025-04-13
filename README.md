@@ -10,7 +10,13 @@ This project provides a web-based simulator for Advanced Practice Registered Nur
     *   **Context Management:** Maintains conversational context (history, topics, emotion) for realistic and coherent responses (inspired by MGE).
     *   **Empathetic Engagement:** AI responses are driven by explicit persona instructions for tone, emotion, and empathy.
 *   **Voice Interaction**: Leverages Hume AI for real-time speech-to-speech communication.
-*   **Faculty Monitoring & Chat**: Allows instructors to observe sessions and provide real-time text-based chat feedback.
+*   **Faculty Monitoring & Evaluation**: 
+    *   Allows instructors to observe sessions in real-time using a unique Session ID.
+    *   Provides a live transcript of the student-patient conversation.
+    *   Includes a dedicated text-based chat window for direct student-faculty communication during the session.
+    *   Features an **Evaluation Tab** with structured criteria (Communication Skills, Empathy, etc.), a 5-point rating scale, and a notes section.
+    *   **Session Persistence:** Retains the full conversation transcript, student/faculty chat log, and evaluation state on the Faculty Dashboard even after the student disconnects, allowing for thorough post-session review and evaluation completion.
+    *   **Save Session Data:** Allows faculty to download a complete record of the session (transcript, chat, evaluation scores, notes) as a JSON file.
 *   **Transcription**: Provides a log of the AI/patient conversation.
 *   **Session Management**: Unique IDs for connecting students and faculty.
 

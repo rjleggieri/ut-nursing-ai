@@ -7,10 +7,11 @@ import FeedbackWindow from '@/components/FeedbackWindow';
 import PatientProfileDisplay from '@/components/PatientProfileDisplay';
 import { useSocket } from '@/contexts/SocketContext';
 import { PersonaData } from '@/types/persona';
+import { ClientMessage } from '@/contexts/SocketContext';
 
 const Index = () => {
   const [selectedPersona, setSelectedPersona] = useState<PersonaData | null>(null);
-  const { session, messages } = useSocket();
+  const { session, messages: allMessages } = useSocket();
   const conversationActive = !!session;
   const sessionId = session?.id || '';
 
@@ -21,6 +22,10 @@ const Index = () => {
       console.warn("Cannot change persona while conversation is active.");
     }
   };
+
+  const feedbackMessages = Array.isArray(allMessages) ? allMessages.filter((msg): msg is ClientMessage => 
+    msg.sessionId === sessionId && (msg.type === 'student' || msg.type === 'faculty')
+  ) : [];
 
   return (
     <div className="min-h-screen bg-utexas-gray flex flex-col">
@@ -56,6 +61,7 @@ const Index = () => {
             
             <div className="flex-1 min-h-0"> 
               <FeedbackWindow 
+                messages={feedbackMessages}
                 sessionId={sessionId} 
                 isActive={conversationActive} 
                 currentUserType="student"

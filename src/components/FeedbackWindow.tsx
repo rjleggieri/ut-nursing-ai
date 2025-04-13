@@ -15,24 +15,17 @@ interface FeedbackWindowProps {
   onMessageSent?: () => void;
   currentUserType: 'student' | 'faculty';
   title: string;
+  messages: ClientMessage[];
 }
 
-const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, currentUserType, title }: FeedbackWindowProps) => {
-  const { messages: allMessages, sendMessage, isConnected, session } = useSocket();
+const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, currentUserType, title, messages }: FeedbackWindowProps) => {
+  const { sendMessage, isConnected, session } = useSocket();
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
-  const feedbackScrollAreaRef = useRef<HTMLDivElement>(null);
-  const [feedbackMessages, setFeedbackMessages] = useState<ClientMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Filter messages based on the locally confirmed connected session
-  // *** Only show STUDENT (text) and FACULTY messages ***
-  const filteredMessages = allMessages.filter(msg => 
-    msg.sessionId === session?.id && (msg.type === 'student' || msg.type === 'faculty')
-  );
-  
   useEffect(() => {
     if (scrollAreaRef.current) {
         const scrollableViewport = scrollAreaRef.current.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
@@ -42,11 +35,11 @@ const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, cur
             }, 50);
         }
     }
-  }, [filteredMessages]);
+  }, [messages]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [filteredMessages]);
+  }, [messages]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,13 +69,13 @@ const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, cur
       
        {/* Content: Replace ScrollArea with basic scrollable div */}
        <div className="flex-1 min-h-0 overflow-y-auto p-4">
-         {filteredMessages.length === 0 ? (
+         {messages.length === 0 ? (
            <div className="flex items-center justify-center h-full text-muted-foreground">
              {isActive ? "Waiting for messages..." : "Session inactive."}
            </div>
          ) : (
            <div className="space-y-4">
-             {filteredMessages.map((msg, index) => {
+             {messages.map((msg, index) => {
                // Check for quote pattern
                const isQuoteReply = msg.content.startsWith('> ') && msg.content.includes('\n');
                let quotedText = '';
