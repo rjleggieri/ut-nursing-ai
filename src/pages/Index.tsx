@@ -26,24 +26,41 @@ const Index = () => {
     <div className="min-h-screen bg-utexas-gray flex flex-col">
       <Header />
       
-      <main className="container flex-1 pb-8 flex flex-col overflow-hidden">
+      <main 
+        className="container flex flex-col overflow-hidden"
+        style={{ height: 'calc(100vh - 11rem)' }}
+      >
         <h1 className="text-2xl font-bold mb-6 text-utexas-navy flex-shrink-0">
           Conversational Training Tool for APRN Students
         </h1>
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full overflow-hidden">
           {/* Left column - Controls & Faculty Chat */}
-          <div className="lg:col-span-4 space-y-4 flex flex-col overflow-hidden">
-            <PersonaSelector 
-              onPersonaSelected={handlePersonaSelected} 
-              disabled={conversationActive}
-            />
-            <SessionInfo sessionId={sessionId} />
-            <ConversationControl 
-              selectedPersona={selectedPersona}
-            />
-            <div className="flex-1 min-h-0">
-              <FeedbackWindow sessionId={sessionId} isActive={conversationActive} />
+          <div className="lg:col-span-4 flex flex-col overflow-hidden">
+            <div className="mb-4">
+              <PersonaSelector 
+                onPersonaSelected={handlePersonaSelected} 
+                disabled={conversationActive}
+              />
+            </div>
+            <div className="mb-4">
+              <SessionInfo 
+                sessionId={sessionId} 
+              />
+            </div>
+            <div className="mb-4">
+              <ConversationControl 
+                selectedPersona={selectedPersona}
+              />
+            </div>
+            
+            <div className="flex-1 min-h-0"> 
+              <FeedbackWindow 
+                sessionId={sessionId} 
+                isActive={conversationActive} 
+                currentUserType="student"
+                title="Faculty Chat" 
+              />
             </div>
           </div>
           

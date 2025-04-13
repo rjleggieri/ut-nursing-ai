@@ -6,14 +6,102 @@ import { toast } from '@/lib/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import { useSocket } from '@/contexts/SocketContext';
 import ConversationWindow from '@/components/ConversationWindow';
 import { Session } from '@/contexts/SocketContext';
 import { formatTimestamp } from '@/lib/utils';
+import FeedbackWindow from '@/components/FeedbackWindow';
+
+// Define evaluation criteria and component here
+const evaluationCriteria = [
+  {
+    title: "Communication Skills",
+    description: "Evaluate clarity, appropriateness of terminology, and adaptability based on patient understanding.",
+  },
+  {
+    title: "Empathy and Compassion",
+    description: "Assess genuine empathy, responsiveness to emotional cues, and ability to convey compassion.",
+  },
+  {
+    title: "Active Listening",
+    description: "Consider time allowed for patient speech, understanding through acknowledgment, and addressing concerns.",
+  },
+  {
+    title: "Patient Education and Guidance",
+    description: "Evaluate clarity in explaining medical concepts and adjusting based on patient understanding.",
+  },
+  {
+    title: "Cultural Competence",
+    description: "Assess sensitivity to cultural values and incorporation of patient beliefs into care discussions.",
+  },
+  {
+    title: "Professionalism",
+    description: "Evaluate tone, response to challenges, and maintenance of appropriate boundaries.",
+  },
+  {
+    title: "Organization and Structure",
+    description: "Consider logical flow of conversation and clarity in outlining important points.",
+  },
+  {
+    title: "Patient-Centered Approach",
+    description: "Assess partnership with the patient and focus on their needs and preferences.",
+  },
+  {
+    title: "Responsiveness to Patient Feedback",
+    description: "Evaluate adaptability based on patient responses and acknowledgment of emotions.",
+  },
+  {
+    title: "Confidence and Comfort Level",
+    description: "Assess confidence during interactions and ability to manage discomfort while providing care.",
+  },
+];
+
+const EvaluationTab = () => {
+  // TODO: Implement state management for radio button selections and notes
+  return (
+    <ScrollArea className="h-full p-4"> 
+      {/* Wrap criteria and notes in a single div for spacing */}
+      <div className="space-y-6"> 
+        {evaluationCriteria.map((criterion, index) => (
+          <div key={index} className="bg-white rounded-lg p-4 shadow-sm border"> 
+            <h3 className="font-semibold text-lg mb-1 text-utexas-navy">{criterion.title}</h3>
+            <p className="text-sm text-gray-600 mb-3">{criterion.description}</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-2"> 
+              {["Poor", "Fair", "Satisfactory", "Very good", "Excellent"].map((option) => (
+                <label key={option} className="flex items-center text-sm cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name={`criterion-${index}`} 
+                    value={option} 
+                    className="mr-1.5 h-4 w-4 text-utexas-orange focus:ring-utexas-orange border-gray-300" 
+                  />
+                  {option}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+        
+        {/* Add Additional Notes Section */}
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+           <h3 className="font-semibold text-lg mb-2 text-utexas-navy">Additional Notes</h3>
+           <Textarea 
+             placeholder="Enter any additional feedback or observations here..."
+             rows={5}
+             className="text-sm"
+             // TODO: Add value and onChange handler for state management
+           />
+         </div>
+      </div>
+    </ScrollArea>
+  );
+};
 
 const FacultyDashboard = () => {
   const [inputSessionId, setInputSessionId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
+  const [selectedQuote, setSelectedQuote] = useState<string | null>(null);
   const { 
     joinSession, 
     session: contextSession,
@@ -116,6 +204,17 @@ const FacultyDashboard = () => {
     }
   };
 
+  // *** Handler for selecting a quote ***
+  const handleQuoteSelect = (quote: string) => {
+    setSelectedQuote(quote);
+    // Optionally focus the feedback input here
+  };
+
+  // *** Handler to clear the quote (e.g., after sending) ***
+  const clearSelectedQuote = () => {
+    setSelectedQuote(null);
+  };
+
   return (
     <div className="h-full bg-utexas-gray flex flex-col">
       <Header />
@@ -166,7 +265,7 @@ const FacultyDashboard = () => {
            </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 overflow-hidden">
-            <div className="lg:col-span-7 flex flex-col overflow-hidden">
+            <div className="lg:col-span-8 flex flex-col overflow-hidden">
               <div className="bg-white p-4 rounded-lg shadow flex-1 flex flex-col overflow-hidden h-full">
                 <div className="flex-shrink-0 mb-3">
                   <h2 className="font-semibold text-lg">Student Session: {connectedSession.id}</h2>
@@ -179,82 +278,34 @@ const FacultyDashboard = () => {
                 <Tabs defaultValue="conversation" className="w-full flex flex-col flex-1 min-h-0">
                   <TabsList className="grid grid-cols-2 flex-shrink-0">
                     <TabsTrigger value="conversation">Live Conversation</TabsTrigger>
-                    <TabsTrigger value="metrics">Metrics & Analysis</TabsTrigger>
+                    <TabsTrigger value="evaluation">Evaluation</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="conversation" className="mt-2 flex-1 overflow-hidden">
                     <ConversationWindow 
                       messages={allMessages}
                       isActive={true}
+                      onQuoteSelect={handleQuoteSelect}
+                      personaName={connectedSession?.personaData?.name ?? null}
                     />
                   </TabsContent>
                   
-                  <TabsContent value="metrics" className="mt-2 flex-1 overflow-hidden">
-                    <div className="p-4 text-center border rounded-md h-full flex items-center justify-center">
-                      <div className="text-muted-foreground">
-                        Metrics & Analysis Placeholder
-                      </div>
-                    </div>
+                  <TabsContent value="evaluation" className="mt-2 flex-1 overflow-hidden border rounded-md bg-gray-50">
+                     <EvaluationTab />
                   </TabsContent>
                 </Tabs>
               </div>
             </div>
             
-            <div className="lg:col-span-5 flex flex-col overflow-hidden">
-              <div className="bg-white p-0 rounded-lg shadow h-full flex flex-col">
-                <div className="p-3 border-b bg-utexas-navy text-white font-medium flex-shrink-0">
-                  Student/Faculty Chat
-                </div>
-                <div className="flex-1 flex flex-col min-h-0 p-4">
-                  <ScrollArea ref={feedbackScrollAreaRef} className="flex-1 mb-4 border rounded-md bg-white p-4">
-                    {feedbackMessages.length === 0 ? (
-                       <div className="flex items-center justify-center h-full text-muted-foreground">
-                          Chat messages will appear here.
-                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {feedbackMessages.map((message, index) => (
-                          <div 
-                            key={`${message.sessionId}-${message.timestamp}-${index}`}
-                            className={`flex ${message.type === 'faculty' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words ${
-                                message.type === 'faculty'
-                                  ? 'bg-utexas-orange text-white'
-                                  : 'bg-blue-100 text-blue-900'
-                              }`}
-                            >
-                              <p className="mb-1">{message.content}</p>
-                              <div className="text-xs opacity-70 mt-1 text-right">
-                                {formatTimestamp(message.timestamp)}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                  
-                  <form 
-                    onSubmit={(e) => { e.preventDefault(); handleSendFeedback(); }}
-                    className="mt-auto pt-4 border-t"
-                  >
-                    <div className="flex gap-2">
-                      <Input
-                        value={feedbackText}
-                        onChange={(e) => setFeedbackText(e.target.value)}
-                        placeholder="Type a message..."
-                        className="flex-1"
-                        disabled={!connectedSession || !socketConnected}
-                      />
-                      <Button type="submit" disabled={!feedbackText.trim() || !connectedSession || !socketConnected}>
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              </div>
+            <div className="lg:col-span-4 flex flex-col overflow-hidden">
+              <FeedbackWindow 
+                sessionId={connectedSession.id} 
+                isActive={true} 
+                selectedQuote={selectedQuote}
+                onMessageSent={clearSelectedQuote}
+                currentUserType="faculty"
+                title="Student/Faculty Chat"
+              />
             </div>
           </div>
         )}

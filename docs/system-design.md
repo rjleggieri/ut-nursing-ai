@@ -14,9 +14,18 @@ The Conversational Training Tool is a voice-based chatbot system designed to hel
 
 ### 2. Faculty Dashboard
 - **Session Connection**: Interface to connect to student sessions using session IDs.
-- **Real-time Monitoring**: View of student-patient conversation transcript.
-- **Feedback Interface**: Text-based communication channel with students.
-- **Session Management**: List of active sessions and connection status.
+- **Real-time Monitoring**: 
+    - View of student-patient conversation transcript (`ConversationWindow` component).
+    - Labels indicate speaker: "Patient (<Persona Name>)", "APRN Student", "Faculty".
+- **Evaluation Tab**: 
+    - Provides a structured interface for faculty to evaluate the student's performance during the session.
+    - Contains a scrollable list of evaluation criteria (e.g., Communication Skills, Empathy, Active Listening, Patient Education, Cultural Competence, Professionalism, Organization, Patient-Centered Approach, Responsiveness, Confidence).
+    - Each criterion includes a brief description and a 5-point radio-button rating scale (Poor, Fair, Satisfactory, Very good, Excellent).
+    - Includes a text area at the bottom for additional qualitative notes or feedback.
+- **Feedback Interface**: 
+    - Text-based communication channel (`FeedbackWindow`) with the connected student.
+    - Allows quoting messages from the main conversation log.
+- **Layout**: Uses a two-column layout (8/12 width for Conversation/Evaluation, 4/12 width for Faculty Chat) on larger screens.
 
 ### 3. Backend Services
 
@@ -167,8 +176,8 @@ GET  /api/personas/:id             # Get full YAML content for a specific person
 - Display transcript and AI messages in `ConversationWindow`.
 
 ### Phase 3: Refinements & Faculty Features
-- Add metrics/analysis tab functionality.
-- Refine UI/UX based on testing.
+- Implement Evaluation tab functionality (scoring criteria, notes) - UI implemented, state management/saving TBD.
+- Refine UI/UX based on testing (e.g., quote handling, layout adjustments).
 - Implement authentication/authorization if needed.
 
 ### Phase 4: Testing & Deployment

@@ -6,9 +6,11 @@ import { formatTimestamp } from '@/lib/utils';
 interface ConversationWindowProps {
   isActive: boolean;
   messages: ClientMessage[];
+  onQuoteSelect?: (quote: string) => void;
+  personaName: string | null;
 }
 
-const ConversationWindow = ({ isActive, messages }: ConversationWindowProps) => {
+const ConversationWindow = ({ isActive, messages, onQuoteSelect, personaName }: ConversationWindowProps) => {
   console.log('[ConversationWindow] Received messages prop:', messages);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -27,9 +29,9 @@ const ConversationWindow = ({ isActive, messages }: ConversationWindowProps) => 
     }
   }, [conversationMessages]);
   
-  const getSenderName = (type: ClientMessage['type']): string => {
-      if (type === 'ai') return 'Patient (AI)';
-      if (type === 'transcription') return 'Student (Voice)';
+  const getSenderName = (type: ClientMessage['type'], currentPersonaName: string | null): string => {
+      if (type === 'ai') return `Patient (${currentPersonaName || 'AI'})`;
+      if (type === 'transcription') return 'APRN Student';
       return 'Other';
   };
   
@@ -54,14 +56,16 @@ const ConversationWindow = ({ isActive, messages }: ConversationWindowProps) => 
                 className={`flex ${message.type === 'transcription' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words ${
+                  className={`max-w-[80%] rounded-lg py-2 px-3 shadow-sm break-words cursor-pointer hover:shadow-md transition-shadow ${
                     message.type === 'transcription'
-                      ? 'bg-utexas-orange text-white'
+                      ? 'bg-blue-100 text-gray-900'
                       : 'bg-gray-100 text-gray-900'
                   }`}
+                  onClick={() => onQuoteSelect?.(message.content)}
+                  title="Click to quote this message"
                 >
                   <div className="text-xs font-medium mb-1 opacity-80">
-                    {getSenderName(message.type)} 
+                    {getSenderName(message.type, personaName)} 
                   </div>
                   <p>{message.content}</p>
                   <div className="text-xs opacity-70 mt-1 text-right">
