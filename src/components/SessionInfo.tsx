@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
@@ -10,9 +10,9 @@ interface SessionInfoProps {
 const SessionInfo = ({ sessionId }: SessionInfoProps) => {
   const [copied, setCopied] = useState(false);
 
-  const handleCopyClick = () => {
+  const handleCopyClick = async () => {
     if (!sessionId) return;
-    navigator.clipboard.writeText(sessionId);
+    await navigator.clipboard.writeText(sessionId);
     setCopied(true);
     toast("Session ID copied to clipboard!", {
       description: "Share this with faculty to connect to your session."

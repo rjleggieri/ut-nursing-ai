@@ -1,92 +1,123 @@
-# Conversational Training Tool for APRN Students
+# CareSpeak
 
-This project provides a web-based simulator for Advanced Practice Registered Nurse (APRN) students to practice sensitive patient conversations.
+> **Archived portfolio project** - built in spring 2025 for an AI in Healthcare course and the University of Texas at Austin School of Nursing's [NURSING-AI Challenge](https://nursing.utexas.edu/research/centers-initiatives/ai-challenge). This repository is preserved as a proof of concept and is not under active development.
 
-## Features
+CareSpeak is a voice-based simulation tool for Advanced Practice Registered Nurse (APRN) students to practice emotionally sensitive patient conversations. It pairs clinician-authored patient personas with a generative voice model, while giving faculty a live transcript, a private coaching channel, a structured evaluation rubric, and a downloadable session record.
 
-*   **Realistic Scenarios**: Practice conversations based on faculty-authored patient personas detailing background, goals, and emotional states.
-*   **GuideLLM-Inspired AI Interaction**: 
-    *   **Goal Navigation:** Patient AI subtly guides conversation towards key milestones/topics defined in the persona, while allowing the student to lead the interaction.
-    *   **Context Management:** Maintains conversational context (history, topics, emotion) for realistic and coherent responses (inspired by MGE).
-    *   **Empathetic Engagement:** AI responses are driven by explicit persona instructions for tone, emotion, and empathy.
-*   **Voice Interaction**: Leverages Hume AI for real-time speech-to-speech communication.
-*   **Faculty Monitoring & Evaluation**: 
-    *   Allows instructors to observe sessions in real-time using a unique Session ID.
-    *   Provides a live transcript of the student-patient conversation.
-    *   Includes a dedicated text-based chat window for direct student-faculty communication during the session.
-    *   Features an **Evaluation Tab** with structured criteria (Communication Skills, Empathy, etc.), a 5-point rating scale, and a notes section.
-    *   **Session Persistence:** Retains the full conversation transcript, student/faculty chat log, and evaluation state on the Faculty Dashboard even after the student disconnects, allowing for thorough post-session review and evaluation completion.
-    *   **Save Session Data:** Allows faculty to download a complete record of the session (transcript, chat, evaluation scores, notes) as a JSON file.
-*   **Transcription**: Provides a log of the AI/patient conversation.
-*   **Session Management**: Unique IDs for connecting students and faculty.
+## Why I built it
 
-## Setup
+Sensitive conversations - discussing end-of-life wishes, counseling an adolescent, or communicating a chronic diagnosis - require practice as much as clinical knowledge. Standardized-patient encounters are effective, but they are expensive, difficult to schedule, and hard to repeat.
+
+The NURSING-AI Challenge invited graduate students and faculty advisors to build AI responses to real problems submitted by nursing faculty. CareSpeak was my response to Challenge 17, developed with faculty guidance from Dr. Cara Young. The prototype explored whether a faculty-controlled, synthetic AI patient could provide a scalable practice environment without using real patient data.
+
+## What the prototype demonstrates
+
+- Real-time speech interaction through Hume AI's Empathic Voice Interface (EVI)
+- Four faculty-oriented, YAML-authored patient scenarios with clinical context, emotional state, learning goals, and conversation guidance
+- A student workspace for persona selection, session control, and faculty chat
+- A faculty dashboard for joining by session ID, monitoring the transcript, quoting messages, and sending feedback
+- A 10-criterion evaluation rubric with qualitative notes
+- Local JSON export of the transcript, chat history, scores, and notes
+- Session-end persistence in the faculty view so an evaluation can be completed after the student disconnects
+
+Only the Advanced Directives scenario is configured for live voice in the archived prototype. The remaining personas document how the scenario library was intended to expand.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Student["Student interface"] <-->|"audio, transcript, chat"| Relay["Node.js + Socket.IO relay"]
+    Faculty["Faculty dashboard"] <-->|"monitoring, chat, evaluation"| Relay
+    Relay <-->|"streaming voice session"| Hume["Hume EVI"]
+    Personas["YAML patient personas"] --> Student
+    Student -->|"selected persona + system prompt"| Relay
+```
+
+The browser streams microphone chunks to the relay server. The server owns session membership and forwards student audio to Hume EVI. Transcriptions, AI responses, synthesized audio, and faculty chat are broadcast through a session-specific Socket.IO room. Session data remains in memory for the life of the server; faculty exports are generated locally in the browser.
+
+See [docs/system-design.md](docs/system-design.md) for the event contract and module map.
+
+## Project structure
+
+```text
+src/
+  components/        Student/faculty interface components
+  contexts/          Socket provider and context contract
+  data/              Evaluation rubric
+  hooks/             Socket and audio playback hooks
+  pages/             Student and faculty routes
+  services/          Persona loading and validation
+  types/             Client domain types
+server/src/
+  services/          In-memory sessions and Hume EVI adapter
+  socket/            Socket.IO event lifecycle
+  types/             Server domain types
+public/personas/     Synthetic patient definitions and portraits
+docs/                Original challenge submission and design notes
+```
+
+## Run locally
+
+This is a legacy demonstration that depends on a Hume API account and an EVI configuration compatible with the archived SDK integration.
 
 ### Prerequisites
 
-*   Node.js (v18 or later recommended)
-*   npm
-*   Hume AI API Key
+- Node.js 18 or newer
+- npm
+- Hume API and secret keys
 
-### Installation
+### Install and configure
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <your-repo-url>
-    cd ut-nursing-ai
-    ```
+```bash
+git clone https://github.com/rjleggieri/ut-nursing-ai.git
+cd ut-nursing-ai
+npm install
+npm --prefix server install
+```
 
-2.  **Install Frontend Dependencies:**
-    ```bash
-    npm install
-    ```
+Copy the example environment files and add your own credentials:
 
-3.  **Install Backend Dependencies:**
-    ```bash
-    cd server
-    npm install
-    cd ..
-    ```
+```bash
+cp .env.example .env
+cp server/.env.example server/.env
+```
 
-4.  **Environment Variables:**
-    *   Create a `.env` file in the root directory:
-        ```dotenv
-        VITE_WS_SERVER_URL=http://localhost:3001
-        VITE_HUME_API_KEY=your_hume_api_key
-        ```
-    *   Create a `.env` file in the `server` directory:
-        ```dotenv
-        PORT=3001
-        CLIENT_URL=http://localhost:8080 # Or the port your frontend runs on
-        HUME_API_KEY=your_hume_api_key
-        ```
-    *Replace `your_hume_api_key` with your actual key.*
+`server/.env`:
 
-## Running the Application
+```dotenv
+PORT=3001
+CLIENT_URL=http://localhost:5173
+HUME_API_KEY=your_hume_api_key
+HUME_SECRET_KEY=your_hume_secret_key
+```
 
-1.  **Start the Backend Server:**
-    ```bash
-    cd server
-    npm run dev
-    ```
+Start the backend and frontend in separate terminals:
 
-2.  **Start the Frontend Development Server:**
-    (In a separate terminal, from the root directory)
-    ```bash
-    npm run dev
-    ```
+```bash
+npm --prefix server run dev
+npm run dev
+```
 
-3.  Open your browser to the URL provided by the frontend server (e.g., `http://localhost:8080`).
+Open `http://localhost:5173`. Start a student session, copy its eight-character ID, and use it from the Faculty Dashboard in a second browser tab.
 
-## Development
+## Quality checks
 
-*   **Frontend**: React, TypeScript, Vite, Tailwind CSS, Shadcn UI
-*   **Backend**: Node.js, TypeScript, Express, Socket.IO
+```bash
+npm run lint
+npm run build
+npm --prefix server test
+```
 
-## Deployment
+## Original submission
 
-(Deployment instructions TBD)
+- [Project report](docs/Challenge.17_Leggieri.Report.pdf)
+- [Challenge presentation](docs/Challenge.17_Leggieri.Slides.pdf)
+- [Showcase handout](docs/Challenge.17_Leggieri.Handout.pdf)
 
-## Contributing
+The submission describes the April 2025 prototype, its adaptation of GuideLLM concepts (goal navigation, context management, and empathetic engagement), and the ethical considerations around synthetic patients, student records, third-party AI services, HIPAA, and FERPA.
 
-(Contribution guidelines TBD)
+## Scope and limitations
+
+CareSpeak was an academic proof of concept, not a clinical product or validated educational intervention. It has no authentication, durable database, learning-management-system integration, or formal privacy/compliance controls. All included patients are synthetic. Do not use it with protected health information, real patient data, or student education records.
+
+Modern multimodal AI platforms now provide much of this prototype's voice and orchestration capability directly. That makes the original product direction obsolete, but the project remains a useful record of the design problem, the 2025 implementation choices, and an early attempt to make generative patient simulation observable and faculty-directed.

@@ -1,22 +1,20 @@
-// Client-side type definitions matching server/src/types/session.ts
-// Ideally, these should be shared from a common package.
+import type { PersonaData } from "./persona";
 
-// Import PersonaData from the existing client-side definition
-import { PersonaData } from './persona';
+export type MessageType = "student" | "ai" | "faculty" | "transcription";
 
 export interface Session {
   id: string;
   studentId: string;
-  personaData: PersonaData | null; // Use the imported PersonaData type
-  startTime: Date | string; // Allow string for serialization from server
+  personaData: PersonaData;
+  startTime: string;
   active: boolean;
   connectedFaculty: string[];
 }
 
 export interface Message {
-  type: 'student' | 'ai' | 'faculty';
+  type: MessageType;
   content: string;
-  timestamp: Date | string; // Allow string for serialization from server
+  timestamp: string;
   sessionId: string;
   senderId: string; 
-} 
+}

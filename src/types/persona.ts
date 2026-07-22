@@ -1,5 +1,3 @@
-// Define shared persona types
-
 export interface PersonaBackground {
   clinical: string;
   emotional: string;
@@ -12,7 +10,7 @@ export interface MgeNodes {
 
 export interface ConversationalMilestone {
   milestone: string;
-  student_prompt?: string; 
+  student_prompt?: string;
   ai_response: string;
   tone: string;
 }
@@ -37,5 +35,8 @@ export interface PersonaData {
   mge_nodes: MgeNodes;
   conversational_milestones: ConversationalMilestone[];
   empathetic_engagement: EmpatheticEngagement;
-  conclusion: { summary: string; closing_quote: string; };
+  conclusion: {
+    summary: string;
+    closing_quote: string;
+  };
 }

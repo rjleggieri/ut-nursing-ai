@@ -1,36 +1,39 @@
-import { Session, Message, PersonaData } from '../types/session';
-// import { v4 as uuidv4 } from 'uuid'; // Remove uuid
-import crypto from 'crypto'; // Import crypto
+import crypto from "node:crypto";
 
-// Function to generate a shorter ID
-function generateShortId(length: number = 8): string {
-  // Generate random bytes, convert to hex, take substring
-  // Each byte becomes 2 hex chars, so need length/2 bytes
-  const bytesNeeded = Math.ceil(length / 2);
-  return crypto.randomBytes(bytesNeeded).toString('hex').slice(0, length);
+import type { Message, PersonaData, Session } from "../types/session";
+
+const SESSION_ID_LENGTH = 8;
+
+function generateSessionId(): string {
+  return crypto
+    .randomBytes(Math.ceil(SESSION_ID_LENGTH / 2))
+    .toString("hex")
+    .slice(0, SESSION_ID_LENGTH);
 }
 
-class SessionManager {
-  private sessions: Map<string, Session> = new Map();
-  private messages: Map<string, Message[]> = new Map();
+export class SessionManager {
+  private readonly sessions = new Map<string, Session>();
+  private readonly messages = new Map<string, Message[]>();
 
   createSession(studentId: string, personaData: PersonaData): Session {
-    if (!personaData || !personaData.id) {
-        // Basic validation - might want more robust checks
-        throw new Error("Invalid persona data provided for session creation.");
+    if (!studentId.trim() || !personaData?.id) {
+      throw new Error("A student ID and valid persona are required.");
     }
+
+    let id = generateSessionId();
+    while (this.sessions.has(id)) id = generateSessionId();
+
     const session: Session = {
-      id: generateShortId(), 
+      id,
       studentId,
-      personaData: personaData, // Store the full object
-      startTime: new Date(),
+      personaData,
+      startTime: new Date().toISOString(),
       active: true,
-      connectedFaculty: []
+      connectedFaculty: [],
     };
 
-    this.sessions.set(session.id, session);
-    this.messages.set(session.id, []);
-    console.log(`SessionManager: Created session ${session.id} with persona ${personaData.id}`);
+    this.sessions.set(id, session);
+    this.messages.set(id, []);
     return session;
   }
 
@@ -38,52 +41,42 @@ class SessionManager {
     return this.sessions.get(sessionId);
   }
 
-  addFacultyToSession(sessionId: string, facultyId: string): boolean {
+  addFaculty(sessionId: string, facultyId: string): boolean {
     const session = this.sessions.get(sessionId);
-    if (session && session.active) {
-      if (!session.connectedFaculty.includes(facultyId)) {
-        session.connectedFaculty.push(facultyId);
-        console.log(`SessionManager: Added faculty ${facultyId} to session ${sessionId}`);
-        return true;
-      }
+    if (!session?.active) return false;
+
+    if (!session.connectedFaculty.includes(facultyId)) {
+      session.connectedFaculty.push(facultyId);
     }
-    console.warn(`SessionManager: Failed to add faculty ${facultyId} to session ${sessionId}`);
-    return false;
+    return true;
   }
 
-  addMessage(message: Message): void {
-    const messages = this.messages.get(message.sessionId) || [];
-    messages.push(message);
-    this.messages.set(message.sessionId, messages);
-    console.log(`SessionManager: Added message to session ${message.sessionId}`);
+  removeFaculty(sessionId: string, facultyId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    session.connectedFaculty = session.connectedFaculty.filter((id) => id !== facultyId);
+  }
+
+  addMessage(message: Message): boolean {
+    const sessionMessages = this.messages.get(message.sessionId);
+    if (!sessionMessages) return false;
+
+    sessionMessages.push(message);
+    return true;
   }
 
   getMessages(sessionId: string): Message[] {
-    return this.messages.get(sessionId) || [];
+    return [...(this.messages.get(sessionId) ?? [])];
   }
 
   endSession(sessionId: string): boolean {
     const session = this.sessions.get(sessionId);
-    if (session) {
-      session.active = false;
-      console.log(`SessionManager: Ended session ${sessionId}`);
-      return true;
-    }
-    console.warn(`SessionManager: Failed to end session ${sessionId} (not found)`);
-    return false;
-  }
+    if (!session?.active) return false;
 
-  // Optional: Method to remove faculty on disconnect
-  removeFacultyFromSession(sessionId: string, facultyId: string): void {
-    const session = this.sessions.get(sessionId);
-    if (session) {
-        const index = session.connectedFaculty.indexOf(facultyId);
-        if (index > -1) {
-            session.connectedFaculty.splice(index, 1);
-            console.log(`SessionManager: Removed faculty ${facultyId} from session ${sessionId}`);
-        }
-    }
+    session.active = false;
+    return true;
   }
 }
 
-export const sessionManager = new SessionManager(); 
+export const sessionManager = new SessionManager();

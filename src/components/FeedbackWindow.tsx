@@ -1,41 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Send, X } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useSocket } from '@/contexts/SocketContext';
-import { ClientMessage } from '@/contexts/SocketContext';
+import { useSocket } from '@/hooks/useSocket';
+import type { Message } from '@/types/session';
 import { formatTimestamp } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 interface FeedbackWindowProps {
-  sessionId: string;
   isActive: boolean;
   selectedQuote?: string | null;
   onMessageSent?: () => void;
   currentUserType: 'student' | 'faculty';
   title: string;
-  messages: ClientMessage[];
+  messages: Message[];
 }
 
-const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, currentUserType, title, messages }: FeedbackWindowProps) => {
+const FeedbackWindow = ({ isActive, selectedQuote, onMessageSent, currentUserType, title, messages }: FeedbackWindowProps) => {
   const { sendMessage, isConnected, session } = useSocket();
   const [inputValue, setInputValue] = useState('');
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  
-  const [inputMessage, setInputMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-        const scrollableViewport = scrollAreaRef.current.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
-        if (scrollableViewport) {
-            setTimeout(() => {
-                scrollableViewport.scrollTop = scrollableViewport.scrollHeight;
-            }, 50);
-        }
-    }
-  }, [messages]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,7 +36,6 @@ const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, cur
 
     sendMessage({
       type: currentUserType,
-      senderId: currentUserType === 'student' ? session?.studentId ?? 'student???' : 'faculty456',
       content: messageContent,
     });
     
@@ -62,12 +45,10 @@ const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, cur
   
   return (
     <div className="flex flex-col h-full border rounded-md bg-white">
-       {/* Title Bar (flex-shrink-0) */}
        <div className="p-3 border-b bg-utexas-navy text-white font-medium flex-shrink-0">
          {title}
        </div>
       
-       {/* Content: Replace ScrollArea with basic scrollable div */}
        <div className="flex-1 min-h-0 overflow-y-auto p-4">
          {messages.length === 0 ? (
            <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -76,7 +57,6 @@ const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, cur
          ) : (
            <div className="space-y-4">
              {messages.map((msg, index) => {
-               // Check for quote pattern
                const isQuoteReply = msg.content.startsWith('> ') && msg.content.includes('\n');
                let quotedText = '';
                let replyText = msg.content;
@@ -95,14 +75,11 @@ const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, cur
                      msg.type === currentUserType ? "justify-end" : "justify-start"
                    )}
                  >
-                   {/* Conditionally render stacked bubbles or single bubble */}
                    {isQuoteReply ? (
-                     <div className="flex flex-col"> {/* Container for stacked bubbles */}
-                       {/* Quote Bubble */}
+                     <div className="flex flex-col">
                        <div className="text-sm italic bg-gray-100 border-l-4 border-gray-300 p-2 rounded-md mb-1 max-w-xs lg:max-w-md">
                          {quotedText}
                        </div>
-                       {/* Reply Bubble */}
                        <div 
                          className={cn(
                            "p-3 rounded-lg max-w-xs lg:max-w-md",
@@ -118,7 +95,6 @@ const FeedbackWindow = ({ sessionId, isActive, selectedQuote, onMessageSent, cur
                        </div>
                      </div>
                    ) : (
-                     /* Standard Message Bubble */
                      <div 
                        className={cn(
                          "p-3 rounded-lg max-w-xs lg:max-w-md",

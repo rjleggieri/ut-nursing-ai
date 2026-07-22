@@ -1,222 +1,80 @@
-# Conversational Training Tool for APRN Students
+# CareSpeak system design
 
-## System Overview
-The Conversational Training Tool is a voice-based chatbot system designed to help APRN (Advanced Practice Registered Nurse) students practice emotional and sensitive conversations with patients. The system enables real-time faculty monitoring and feedback during these practice sessions. The AI interaction model is inspired by the GuideLLM framework (arxiv.org/abs/2502.06494), focusing on goal navigation, context management, and empathetic engagement within faculty-defined scenarios.
+This document describes the archived prototype as implemented. CareSpeak has two React routes backed by a Node.js Socket.IO relay and Hume AI's Empathic Voice Interface (EVI).
 
-## Core Components
+## Runtime components
 
-### 1. Student Interface
-- **Persona Selection**: Dropdown menu populated from YAML files in `/personas` directory (loads full persona data on selection).
-- **Conversation Controls**: Start/Stop button for voice interactions.
-- **Chat Display**: Real-time transcription of AI/patient voice conversation.
-- **Faculty Feedback Panel**: Separate text-based communication channel with observing faculty.
-- **Session Management**: Unique session ID generation and sharing functionality.
+### Student interface
 
-### 2. Faculty Dashboard
-- **Session Connection**: Interface to connect to student sessions using session IDs.
-- **Real-time Monitoring**: 
-    - View of student-patient conversation transcript (`ConversationWindow` component).
-    - Labels indicate speaker: "Patient (<Persona Name>)", "APRN Student", "Faculty".
-- **Evaluation Tab**: 
-    - Provides a structured interface for faculty to evaluate the student's performance during the session.
-    - Contains a scrollable list of evaluation criteria (e.g., Communication Skills, Empathy, Active Listening, Patient Education, Cultural Competence, Professionalism, Organization, Patient-Centered Approach, Responsiveness, Confidence).
-    - Each criterion includes a brief description and a 5-point radio-button rating scale (Poor, Fair, Satisfactory, Very good, Excellent).
-    - Includes a text area at the bottom for additional qualitative notes or feedback.
-- **Feedback Interface**: 
-    - Text-based communication channel (`FeedbackWindow`) with the connected student.
-    - Allows quoting messages from the main conversation log.
-- **Layout**: Uses a two-column layout (8/12 width for Conversation/Evaluation, 4/12 width for Faculty Chat) on larger screens.
+- Loads the four known YAML personas from `public/personas` through `personaService`.
+- Starts a session with a browser-scoped synthetic participant ID and the selected persona.
+- Captures microphone audio with `MediaRecorder`, converts chunks to base64, and streams them to the server.
+- Plays AI audio through a queue managed by `useAudioPlayback`.
+- Displays the session ID and a separate student/faculty chat.
 
-### 3. Backend Services
+### Faculty dashboard
 
-#### Relay Server
-- **WebSocket Server**: Handles real-time communication between components.
-- **Session Management**: Creates and maintains session state, including storing selected `personaData`.
-- **Message Routing**: Routes messages between students, faculty, and the Hume AI/LLM service.
+- Joins an active session by its eight-character ID.
+- Maintains local copies of transcript and chat messages.
+- Preserves those copies, evaluation scores, and notes after the student session ends.
+- Exports a structured JSON record in the browser.
 
-#### Hume AI Integration & LLM Interaction Model
+### Relay server
 
-This component leverages Hume AI for its core speech-to-text and text-to-speech capabilities. The underlying LLM's conversational behavior is guided by principles adapted from the GuideLLM framework:
+- `index.ts` configures Express, the health endpoint, CORS, and Socket.IO.
+- `registerSocketHandlers.ts` owns connection identity, authorization, room membership, event validation, and routing.
+- `sessionManager.ts` owns in-memory session metadata and message history.
+- `humeService.ts` owns one Hume EVI socket per active student session.
 
-- **Speech-to-Text:** Real-time transcription of student voice input via Hume AI.
-- **Text-to-Speech:** Voice response generation for patient personas via Hume AI, potentially leveraging Hume's EVI features for emotional expression.
-- **Goal Navigation (Adapted):** 
-    - Uses faculty-authored scenario scripts (from `/personas` YAML files) containing key conversational milestones, talking points, and desired patient emotional states.
-    - The LLM is prompted to generate contextually appropriate patient responses that align with the persona's background and goals, subtly guiding the conversation towards the defined milestones or key topics when appropriate, without rigidly adhering to a script (inspired by GuideLLM's goal-oriented approach, but student-led).
-- **Context Management (MGE-Inspired):**
-    - The backend maintains conversational context by tracking the interaction history and potentially summarizing key topics discussed and emotional trends (inspired by GuideLLM's Memory Graph Extrapolation concept).
-    - This context (raw history or summary) is included in prompts to the LLM to ensure conversational continuity and realism.
-- **Empathetic Engagement:**
-    - Inspired by GuideLLM's focus on empathy, the AI's emotional tone and responsiveness are guided by detailed instructions and cues embedded in the persona file (e.g., background, guidance, example phrases).
-    - These instructions are reinforced in the system prompt and potentially updated via context summaries sent to the LLM.
+## Session lifecycle
 
-#### LLM Prompt Construction Strategy (Per Turn)
+1. A student emits `create_session` with a participant ID and persona.
+2. The server creates an in-memory session, joins the student's socket to its room, and emits `session_created`.
+3. The server starts Hume EVI when the persona has a `config_id`.
+4. Faculty emits `join_session`; the server validates the session, joins the room, and returns `joined_session` plus `message_history`.
+5. Audio, transcript messages, AI messages, and chat messages are routed to the room.
+6. When the student ends or disconnects, the server closes EVI and emits `session_ended`. Faculty keeps its local review state.
+7. Faculty may export the session and then emit `leave_session` by disconnecting from the dashboard view.
 
-To generate each AI patient response, the backend constructs a detailed prompt for the LLM. This prompt dynamically combines static persona information with dynamic conversational context:
+## Socket event contract
 
-1.  **System Prompt (Base):**
-    *   Derived from the selected persona's YAML (`personaData` stored in the session).
-    *   Includes: Persona identity (`name`, `age`, `scenario`, `diagnosis`), background (`clinical`, `emotional`), core MGE nodes (`emotion_nodes`, `topic_nodes`), and detailed empathetic engagement guidance (`guidance`, `example_phrases`).
-    *   Example Structure: "You are [Name], a [Age]-year-old... You feel [emotional background]... Your key concerns are [emotion_nodes]... Speak according to the following guidance: [empathy guidance]..."
+### Client to server
 
-2.  **Conversation History:**
-    *   Includes the last N (e.g., 5-10) turns of the student-AI conversation transcript.
-    *   Format: `Student: ... \n AI: ... \n Student: ...`
+| Event | Payload | Purpose |
+| --- | --- | --- |
+| `create_session` | `{ studentId, personaData }` | Create a student-owned session. |
+| `join_session` | `{ sessionId, facultyId }` | Join an active session as faculty. |
+| `leave_session` | none | Leave the current session as faculty. |
+| `VOICE_INPUT` | `{ sessionId, encodedAudioData }` | Stream a base64 microphone chunk. |
+| `send_message` | `{ sessionId, type, content }` | Send student/faculty text chat. |
+| `end_session` | `{ sessionId }` | End a student-owned session. |
 
-3.  **Context Summary (Optional/Future Enhancement):**
-    *   A condensed summary of the conversation state, potentially generated periodically.
-    *   Could track: Topics covered, expressed student/AI emotions, progress towards persona goals.
-    *   Included alongside or instead of raw history for longer conversations.
+### Server to client
 
-4.  **Goal Navigation Elements (Dynamic & Optional):**
-    *   **Few-Shot Milestone Examples:** Include 1-2 relevant `conversational_milestones` from the persona YAML as examples of how the persona might react in similar situations presented by the student.
-    *   **Gentle Guidance Instruction:** Add a subtle instruction like "If appropriate, gently steer towards discussing [relevant topic_node or next milestone theme]."
+| Event | Purpose |
+| --- | --- |
+| `session_created` | Returns a newly created session. |
+| `joined_session` | Confirms a faculty join. |
+| `message_history` | Sends existing transcript and chat messages. |
+| `new_message` | Broadcasts a persisted message. |
+| `session_ended` | Signals that the student session is over. |
+| `transcriptionUpdate` | Sends interim or final student speech text. |
+| `assistantMessage` | Sends AI response text. |
+| `audioOutput` | Sends synthesized audio bytes. |
+| `humeError`, `humeClose`, `error` | Reports service or protocol errors. |
 
-5.  **Current Student Input:**
-    *   The latest transcribed text utterance from the student (provided by Hume STT).
+## Data and trust boundaries
 
-6.  **Final Instruction:**
-    *   A concluding instruction guiding the LLM, e.g., "Generate the next response for [Persona Name], staying in character based on the persona, conversation history, and empathetic guidance. Ensure the response is empathetic and natural."
+- Personas are synthetic static assets and are sent from the browser to the server at session creation.
+- Session and message state is memory-only and disappears when the server restarts.
+- The server, not the client, assigns message timestamps, sender IDs, and permitted chat roles.
+- Hume credentials exist only in `server/.env`; environment files are ignored by Git.
+- The prototype has no authentication or authorization beyond connection-scoped role and session ownership.
 
-This structured prompt allows the LLM to generate responses that are contextually relevant, persona-consistent, emotionally appropriate, and subtly guided towards the learning objectives defined in the faculty-authored scenarios.
+## Known limitations
 
-## Technical Architecture
-
-### Frontend Routes
-```
-/                           # Student main interface
-/faculty-dashboard          # Faculty monitoring interface
-```
-
-### WebSocket Events
-```
-# Student -> Server
-- START_SESSION { studentId: string, personaData: object } // Send full persona data
-- END_SESSION { sessionId: string }
-- VOICE_INPUT { sessionId: string, audioChunk: Blob } // For streaming STT
-- TEXT_MESSAGE { sessionId: string, type: 'student', content: string } // Student->Faculty chat
-
-# Server -> Student / Faculty (in session room)
-- SESSION_CREATED { session: Session } // Send full session object with personaData
-- JOINED_SESSION { session: Session } // Send full session object with personaData
-- MESSAGE_HISTORY { messages: Message[] }
-- NEW_MESSAGE { message: Message } // Includes student, ai, faculty types
-- SESSION_ENDED { sessionId: string }
-- TRANSCRIPTION_UPDATE { text: string, isFinal: boolean } // For live transcription display
-- AI_RESPONSE_AUDIO { audioChunk: Blob } // For streaming AI audio response
-- ERROR { message: string }
-
-# Faculty -> Server
-- JOIN_SESSION { sessionId: string, facultyId: string }
-- TEXT_MESSAGE { sessionId: string, type: 'faculty', content: string } // Faculty->Student chat
-
-# Server -> Specific Faculty Socket
-# (Potentially useful for specific dashboard updates, TBD)
-```
-
-### API Endpoints
-```
-GET  /api/personas                  # Get list of available persona IDs/names
-GET  /api/personas/:id             # Get full YAML content for a specific persona (alternative to loading on frontend)
-# Other API endpoints (e.g., for auth) TBD
-```
-
-## Data Flow
-
-1.  **Session Initialization**
-    *   Student selects persona, frontend loads and parses YAML.
-    *   Student clicks start, frontend sends `START_SESSION` with `studentId` and full `personaData` object.
-    *   Backend creates session, stores `personaData`, generates unique session ID.
-    *   Backend emits `SESSION_CREATED` with the full session object (including ID and `personaData`) back to the student.
-    *   Student shares session ID with faculty.
-
-2.  **Conversation Flow (Student perspective)**
-    *   Student speaks.
-    *   Frontend captures audio, sends `VOICE_INPUT` chunks via WebSocket.
-    *   Backend forwards audio chunks to Hume STT.
-    *   Hume sends transcription updates; Backend relays `TRANSCRIPTION_UPDATE` to room.
-    *   On final transcription, Backend constructs LLM prompt using stored `personaData`, history, etc.
-    *   Backend sends prompt to LLM (potentially Hume EVI or another model).
-    *   LLM generates text response.
-    *   Backend sends text response to Hume TTS.
-    *   Hume sends audio chunks; Backend relays `AI_RESPONSE_AUDIO` chunks to room.
-    *   Backend saves Student transcription and AI response text as `Message` objects (`type: 'student'`, `type: 'ai'`) and emits `NEW_MESSAGE` for both.
-    *   Frontend renders transcription in `ConversationWindow`, plays AI audio, updates chat log (`ConversationWindow` with AI message, `FeedbackWindow` with Student message).
-
-3.  **Faculty Monitoring & Chat (Updated Flow)**
-    *   Faculty enters session ID, clicks Join.
-    *   Frontend sends `JOIN_SESSION`.
-    *   Backend validates ID, adds faculty to session room, retrieves session data.
-    *   Backend emits `JOINED_SESSION` with full session object back to faculty.
-    *   Backend emits `MESSAGE_HISTORY` to faculty.
-    *   **Faculty Dashboard State:**
-        *   Sets `sessionStatus` to `'connected'`.
-        *   Stores the received session object in `connectedSession` state.
-        *   Populates local `sessionMessages` state with initial messages filtered from `allMessages` (from context/history).
-    *   **Message Updates (While Connected):**
-        *   As the backend emits `NEW_MESSAGE` to the room (for AI, Student transcript, Student chat, or Faculty chat), the faculty dashboard's `useEffect` hook appends these new messages for the current `connectedSession.id` to its local `sessionMessages` state.
-    *   **Display:**
-        *   `ConversationWindow` displays messages filtered from local `sessionMessages` state (`type: 'ai'` or `'transcription'`).
-        *   `FeedbackWindow` displays messages filtered from local `sessionMessages` state (`type: 'student'` or `'faculty'`).
-    *   **Faculty Chat Input:**
-        *   Faculty types chat message, frontend sends `TEXT_MESSAGE` (`type: 'faculty'`).
-        *   Backend saves message, emits `NEW_MESSAGE` to room.
-    *   **Student Chat Input:**
-        *   Student types chat message, frontend sends `TEXT_MESSAGE` (`type: 'student'`).
-        *   Backend saves message, emits `NEW_MESSAGE` to room.
-    *   **Session End Handling:**
-        *   Backend emits `SESSION_ENDED` event when student disconnects or session ends.
-        *   Faculty Dashboard receives event via context, updates `sessionStatus` to `'ended'`. 
-        *   Crucially, it **retains** the `connectedSession` data and the populated local `sessionMessages` state.
-        *   `FeedbackWindow` input becomes disabled.
-    *   **Saving:**
-        *   Faculty reviews transcript, chat, and completes Evaluation tab.
-        *   Faculty clicks "Save Session" button.
-        *   Frontend gathers data from local state: `connectedSession` details, `sessionMessages` (filtered into transcript and chat logs), `evaluationScores`, `evaluationNotes`.
-        *   Frontend constructs a JSON object containing this data.
-        *   Frontend triggers a browser download of the generated JSON file.
-    *   **Disconnecting:**
-        *   Faculty clicks "Disconnect" button.
-        *   Frontend resets state: `sessionStatus` to `'disconnected'`, clears `connectedSession`, `sessionMessages`, evaluation state.
-
-## Security Considerations
-- WebSocket connections require authentication (TBD).
-- Session IDs should be unguessable and ideally time-limited or single-use for joining.
-- Faculty access may require separate authentication.
-- All communications should ideally be encrypted (WSS/HTTPS).
-
-## Implementation Phases
-
-### Phase 1: Core Infrastructure (Mostly Done)
-- Set up WebSocket server.
-- Implement session management (including personaData storage).
-- Create basic UI components and student/faculty connection flow.
-- Implement student/faculty text chat.
-
-### Phase 2: Hume AI & LLM Integration
-- Integrate Hume STT (frontend audio capture, backend streaming).
-- Implement backend LLM prompt construction and interaction.
-- Integrate Hume TTS (backend streaming, frontend audio playback).
-- Display transcript and AI messages in `ConversationWindow`.
-
-### Phase 3: Refinements & Faculty Features
-- Implement Evaluation tab functionality (scoring criteria, notes) - UI & state management implemented, data saving TBD.
-- Implement Faculty Dashboard state persistence (messages, session info retained after student disconnect) - **Completed**.
-- Implement client-side session data saving (JSON download) - **Completed**.
-- Refine UI/UX based on testing (e.g., quote handling, layout adjustments, Evaluation "Clear" button).
-- Implement authentication/authorization if needed.
-
-### Phase 4: Testing & Deployment
-- User testing with students and faculty.
-- Performance optimization.
-- Prepare for deployment.
-
-## Technical Requirements
-- Node.js backend
-- React frontend
-- WebSocket support (Socket.IO)
-- Hume AI API access
-- YAML parsing library (js-yaml)
-- Potential LLM API access (if not using Hume EVI directly for generation)
-- Secure authentication system (optional, TBD)
-- Real-time audio processing capabilities
+- One server process and in-memory state only; no horizontal scaling or durable recovery.
+- No user accounts, access control, rate limiting, or audit log.
+- No automated educational scoring or formal validation study.
+- Voice behavior depends on a legacy third-party SDK and external EVI configuration.
+- The faculty export is a local JSON download, not a protected student-record system.

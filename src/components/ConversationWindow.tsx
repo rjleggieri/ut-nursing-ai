@@ -1,22 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ClientMessage } from '@/contexts/SocketContext';
+import type { Message } from '@/types/session';
 import { formatTimestamp } from '@/lib/utils';
 
 interface ConversationWindowProps {
   isActive: boolean;
-  messages: ClientMessage[];
+  messages: Message[];
   onQuoteSelect?: (quote: string) => void;
   personaName: string | null;
 }
 
 const ConversationWindow = ({ isActive, messages, onQuoteSelect, personaName }: ConversationWindowProps) => {
-  console.log('[ConversationWindow] Received messages prop:', messages);
-  
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const conversationMessages = messages.filter(msg => msg.type === 'ai' || msg.type === 'transcription');
-  console.log('[ConversationWindow] Filtered conversationMessages:', conversationMessages);
   
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -29,7 +26,7 @@ const ConversationWindow = ({ isActive, messages, onQuoteSelect, personaName }: 
     }
   }, [conversationMessages]);
   
-  const getSenderName = (type: ClientMessage['type'], currentPersonaName: string | null): string => {
+  const getSenderName = (type: Message['type'], currentPersonaName: string | null): string => {
       if (type === 'ai') return `Patient (${currentPersonaName || 'AI'})`;
       if (type === 'transcription') return 'APRN Student';
       return 'Other';
