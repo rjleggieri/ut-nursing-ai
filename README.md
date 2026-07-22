@@ -1,14 +1,18 @@
-# CareSpeak
+# PraxiCom
 
 > **Archived portfolio project** - built in spring 2025 for an AI in Healthcare course and the University of Texas at Austin School of Nursing's [NURSING-AI Challenge](https://nursing.utexas.edu/research/centers-initiatives/ai-challenge). This repository is preserved as a proof of concept and is not under active development.
 
-CareSpeak is a voice-based simulation tool for Advanced Practice Registered Nurse (APRN) students to practice emotionally sensitive patient conversations. It pairs clinician-authored patient personas with a generative voice model, while giving faculty a live transcript, a private coaching channel, a structured evaluation rubric, and a downloadable session record.
+PraxiCom (formerly CareSpeak) is an affect-aware conversational simulation platform designed for APRN training. The system integrates real-time speech processing, structured persona modeling, and dynamic response generation to simulate emotionally nuanced patient interactions. It emphasizes communication complexity — including vocal affect, conversational resistance, and tone–content discrepancies — rather than diagnostic decision-making alone. The project was developed in collaboration with nursing faculty as part of the UT Austin NURSING-AI Challenge.
+
+![PraxiCom student interface showing persona selection, session controls, faculty chat, and a synthetic patient profile](public/assets/praxicom-ui.png)
+
+*Student interface from the spring 2025 prototype.*
 
 ## Why I built it
 
 Sensitive conversations - discussing end-of-life wishes, counseling an adolescent, or communicating a chronic diagnosis - require practice as much as clinical knowledge. Standardized-patient encounters are effective, but they are expensive, difficult to schedule, and hard to repeat.
 
-The NURSING-AI Challenge invited graduate students and faculty advisors to build AI responses to real problems submitted by nursing faculty. CareSpeak was my response to Challenge 17, developed with faculty guidance from Dr. Cara Young. The prototype explored whether a faculty-controlled, synthetic AI patient could provide a scalable practice environment without using real patient data.
+The NURSING-AI Challenge invited graduate students and faculty advisors to build AI responses to real problems submitted by nursing faculty. PraxiCom was my response to Challenge 17, developed with faculty guidance from Dr. Cara Young. The prototype explored whether a faculty-controlled, synthetic AI patient could provide a scalable practice environment without using real patient data.
 
 ## What the prototype demonstrates
 
@@ -114,10 +118,10 @@ npm --prefix server test
 - [Challenge presentation](docs/Challenge.17_Leggieri.Slides.pdf)
 - [Showcase handout](docs/Challenge.17_Leggieri.Handout.pdf)
 
-The submission describes the April 2025 prototype, its adaptation of GuideLLM concepts (goal navigation, context management, and empathetic engagement), and the ethical considerations around synthetic patients, student records, third-party AI services, HIPAA, and FERPA.
+The original submission uses the project's earlier working title, CareSpeak. It describes the April 2025 prototype, its adaptation of GuideLLM concepts (goal navigation, context management, and empathetic engagement), and the ethical considerations around synthetic patients, student records, third-party AI services, HIPAA, and FERPA.
 
 ## Scope and limitations
 
-CareSpeak was an academic proof of concept, not a clinical product or validated educational intervention. It has no authentication, durable database, learning-management-system integration, or formal privacy/compliance controls. All included patients are synthetic. Do not use it with protected health information, real patient data, or student education records.
+PraxiCom was an academic proof of concept, not a clinical product or validated educational intervention. It has no authentication, durable database, learning-management-system integration, or formal privacy/compliance controls. All included patients are synthetic. Do not use it with protected health information, real patient data, or student education records.
 
 Modern multimodal AI platforms now provide much of this prototype's voice and orchestration capability directly. That makes the original product direction obsolete, but the project remains a useful record of the design problem, the 2025 implementation choices, and an early attempt to make generative patient simulation observable and faculty-directed.
