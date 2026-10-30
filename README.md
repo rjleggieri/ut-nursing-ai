@@ -1,8 +1,12 @@
 # PraxiCom
 
-> **Archived portfolio project** - built in spring 2025 for an AI in Healthcare course and the University of Texas at Austin School of Nursing's [NURSING-AI Challenge](https://nursing.utexas.edu/research/centers-initiatives/ai-challenge). This repository is preserved as a proof of concept and is not under active development.
+A faculty-directed voice simulation for advanced practice nursing education.
 
-PraxiCom (formerly CareSpeak) is an affect-aware conversational simulation platform designed for APRN training. The system integrates real-time speech processing, structured persona modeling, and dynamic response generation to simulate emotionally nuanced patient interactions. It emphasizes communication complexity — including vocal affect, conversational resistance, and tone–content discrepancies — rather than diagnostic decision-making alone. The project was developed in collaboration with nursing faculty as part of the UT Austin NURSING-AI Challenge.
+I individually built PraxiCom (formerly CareSpeak) in spring 2025 for an AI in Healthcare
+course and UT Austin School of Nursing's [NURSING-AI Challenge](https://nursing.utexas.edu/research/centers-initiatives/ai-challenge),
+with guidance from nursing faculty member Dr. Cara Young. The prototype connects a live
+AI-patient conversation with a student workspace, faculty monitoring, structured evaluation,
+and session export.
 
 ![PraxiCom student interface showing persona selection, session controls, faculty chat, and a synthetic patient profile](public/assets/praxicom-ui.png)
 
@@ -10,21 +14,24 @@ PraxiCom (formerly CareSpeak) is an affect-aware conversational simulation platf
 
 ## Why I built it
 
-Sensitive conversations - discussing end-of-life wishes, counseling an adolescent, or communicating a chronic diagnosis - require practice as much as clinical knowledge. Standardized-patient encounters are effective, but they are expensive, difficult to schedule, and hard to repeat.
+PraxiCom was my response to Challenge 17: a way for nursing students to practice sensitive
+conversations, including discussions of end-of-life wishes, with a synthetic patient.
+Faculty can follow the transcript, send feedback, and review communication within the same session.
 
-The NURSING-AI Challenge invited graduate students and faculty advisors to build AI responses to real problems submitted by nursing faculty. PraxiCom was my response to Challenge 17, developed with faculty guidance from Dr. Cara Young. The prototype explored whether a faculty-controlled, synthetic AI patient could provide a scalable practice environment without using real patient data.
+I implemented the student and faculty workflows, streaming voice integration, scenario
+definitions, and session-record handling with nursing-faculty guidance.
 
-## What the prototype demonstrates
+## What I built
 
 - Real-time speech interaction through Hume AI's Empathic Voice Interface (EVI)
-- Four faculty-oriented, YAML-authored patient scenarios with clinical context, emotional state, learning goals, and conversation guidance
+- YAML-authored patient personas with editable clinical context, emotional state, learning goals, and conversation guidance
 - A student workspace for persona selection, session control, and faculty chat
 - A faculty dashboard for joining by session ID, monitoring the transcript, quoting messages, and sending feedback
-- A 10-criterion evaluation rubric with qualitative notes
+- Faculty-defined evaluation criteria with rubric ratings and qualitative notes
 - Local JSON export of the transcript, chat history, scores, and notes
 - Session-end persistence in the faculty view so an evaluation can be completed after the student disconnects
 
-Only the Advanced Directives scenario is configured for live voice in the archived prototype. The remaining personas document how the scenario library was intended to expand.
+The Advanced Directives scenario demonstrates the live voice workflow. Additional patient scenarios are supplied as YAML definitions.
 
 ## Architecture
 
@@ -62,7 +69,7 @@ docs/                Original challenge submission and design notes
 
 ## Run locally
 
-This is a legacy demonstration that depends on a Hume API account and an EVI configuration compatible with the archived SDK integration.
+Running this version requires a Hume API account and an EVI configuration compatible with its SDK integration.
 
 ### Prerequisites
 
@@ -124,4 +131,4 @@ The original submission uses the project's earlier working title, CareSpeak. It 
 
 PraxiCom was an academic proof of concept, not a clinical product or validated educational intervention. It has no authentication, durable database, learning-management-system integration, or formal privacy/compliance controls. All included patients are synthetic. Do not use it with protected health information, real patient data, or student education records.
 
-Modern multimodal AI platforms now provide much of this prototype's voice and orchestration capability directly. That makes the original product direction obsolete, but the project remains a useful record of the design problem, the 2025 implementation choices, and an early attempt to make generative patient simulation observable and faculty-directed.
+This repository preserves the spring 2025 implementation and is not under active development. The architecture and project materials document the streaming voice integration, student/faculty session workflow, and structured communication review.
